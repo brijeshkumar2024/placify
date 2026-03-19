@@ -1,0 +1,53 @@
+# Node
+node_modules/
+dist/
+.next/
+.vite/
+*.local
+
+# Java / Spring Boot
+*.class
+*.jar
+*.war
+*.ear
+target/
+.mvn/
+*.iml
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+*.pkl
+*.joblib
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.development
+.env.production
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Build outputs
+build/
+out/
