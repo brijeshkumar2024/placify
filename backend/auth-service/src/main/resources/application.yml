@@ -1,0 +1,35 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  data:
+    mongodb:
+      uri: mongodb+srv://campusadmin:Campus12345@cluster0.mbimlly.mongodb.net/campus_placement?retryWrites=true&w=majority&appName=Cluster0
+      database: campus_placement
+  redis:
+    host: square-swift-77824.upstash.io
+    port: 6379
+    password: gQAAAAAAATAAAAIncDE5YjcyZWEzNDBjYmI0OWE5OGY1MDNmNGM0YjBiZGY4N3AxNzc4MjQ
+    ssl:
+      enabled: true
+
+jwt:
+  secret: 4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+resend:
+  api-key: placeholder
+  from-email: noreply@campusplacement.com
+
+otp:
+  expiry-minutes: 10
+  max-attempts: 3
+  max-resends: 3
+  lockout-minutes: 30
+
+logging:
+  level:
+    com.placement: DEBUG
