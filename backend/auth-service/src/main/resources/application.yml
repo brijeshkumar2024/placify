@@ -6,14 +6,16 @@ spring:
     name: auth-service
   data:
     mongodb:
-      uri: mongodb+srv://campusadmin:Campus12345@cluster0.mbimlly.mongodb.net/campus_placement?retryWrites=true&w=majority&appName=Cluster0
+      uri: mongodb://localhost:27017/campus_placement
       database: campus_placement
+      auto-index-creation: true
   redis:
-    host: square-swift-77824.upstash.io
+    host: localhost
     port: 6379
-    password: gQAAAAAAATAAAAIncDE5YjcyZWEzNDBjYmI0OWE5OGY1MDNmNGM0YjBiZGY4N3AxNzc4MjQ
     ssl:
-      enabled: true
+      enabled: false
+    timeout: 3000ms
+    connect-timeout: 3000ms
 
 jwt:
   secret: 4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==
@@ -21,8 +23,8 @@ jwt:
   refresh-expiration: 604800000
 
 resend:
-  api-key: placeholder
-  from-email: noreply@campusplacement.com
+  api-key: re_4AEkQRbN_4JdaTb7pL9Zx8FiZG3R8P6FS
+  from-email: onboarding@resend.dev
 
 otp:
   expiry-minutes: 10
