@@ -4,6 +4,7 @@ import OtpPage from './pages/auth/OtpPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import LoginPage from './pages/auth/LoginPage'
 import Dashboard from './pages/dashboard/Dashboard'
+import JobFeed from './pages/dashboard/JobFeed'
 import DashboardLayout from './components/layout/DashboardLayout'
 import useAuthStore from './store/authStore'
 
@@ -25,7 +26,7 @@ function App() {
         </ProtectedRoute>
       }>
         <Route index element={<Dashboard />} />
-        <Route path="jobs" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Job feed — coming next</h2></div>} />
+        <Route path="jobs" element={<JobFeed />} />
         <Route path="applications" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Applications — coming next</h2></div>} />
         <Route path="interview" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Mock interview — coming next</h2></div>} />
         <Route path="roadmap" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Career roadmap — coming next</h2></div>} />
