@@ -1,0 +1,10 @@
+package com.placement.job.repository;
+import com.placement.job.model.Job;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
+import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+@Repository
+public interface JobRepository extends ReactiveMongoRepository<Job, String> {
+    Flux<Job> findByStatus(Job.JobStatus status);
+    Flux<Job> findByStatusAndMinCgpaLessThanEqual(Job.JobStatus status, double cgpa);
+}

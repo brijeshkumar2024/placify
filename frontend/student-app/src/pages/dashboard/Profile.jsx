@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { Plus, Trash2, Upload, CheckCircle, User, BookOpen, Code, Briefcase } from 'lucide-react'
 import { userApi } from '../../services/api'
@@ -24,11 +24,11 @@ export default function Profile() {
   const [loading, setLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm({
     defaultValues: {
-      fullName: 'Brijesh Mohanty',
+      fullName: '',
       phone: '',
-      rollNumber: 'CS2021001',
+      rollNumber: '',
       branch: 'Computer Science',
       cgpa: '',
       graduationYear: '2026',
@@ -43,14 +43,29 @@ export default function Profile() {
   const { fields: expFields, append: addExp, remove: removeExp } = useFieldArray({ control, name: 'experience' })
 
   useEffect(() => {
-    setLoading(true)
     userApi.getProfile()
       .then(res => {
         const p = res.data.data
-        if (p?.skills?.length) setSelectedSkills(p.skills)
+        if (!p) return
+        if (p.skills?.length) setSelectedSkills(p.skills)
+        reset({
+          fullName: p.fullName || '',
+          phone: p.phone || '',
+          rollNumber: p.rollNumber || '',
+          branch: p.branch || 'Computer Science',
+          cgpa: p.cgpa > 0 ? p.cgpa : '',
+          graduationYear: p.graduationYear > 0 ? String(p.graduationYear) : '2026',
+          linkedin: p.linkedinUrl || '',
+          github: p.githubUrl || '',
+          education: p.education?.length
+            ? p.education
+            : [{ degree: 'B.Tech', institution: '', year: '', percentage: '' }],
+          experience: p.experience?.length
+            ? p.experience
+            : [{ title: '', company: '', duration: '', description: '' }],
+        })
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
   }, [])
 
   const toggleSkill = (skill) => {

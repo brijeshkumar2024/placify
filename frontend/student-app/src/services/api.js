@@ -1,18 +1,7 @@
 import axios from 'axios'
 
-const authApi_instance = axios.create({
-  baseURL: 'http://localhost:8081',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
-})
-
-const userApi_instance = axios.create({
-  baseURL: 'http://localhost:8082',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
-})
-
-const addAuthInterceptor = (instance) => {
+const createInstance = (baseURL) => {
+  const instance = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' }, timeout: 10000 })
   instance.interceptors.request.use((config) => {
     const token = localStorage.getItem('placify_token')
     if (token) config.headers.Authorization = `Bearer ${token}`
@@ -28,21 +17,30 @@ const addAuthInterceptor = (instance) => {
       return Promise.reject(err)
     }
   )
+  return instance
 }
 
-addAuthInterceptor(authApi_instance)
-addAuthInterceptor(userApi_instance)
+const authInstance = createInstance('http://localhost:8081')
+const userInstance = createInstance('http://localhost:8082')
+const jobInstance  = createInstance('http://localhost:8083')
 
 export const authApi = {
-  checkEmail: (email) => authApi_instance.post('/api/auth/check-email', { email }),
-  verifyOtp: (email, otp) => authApi_instance.post('/api/auth/verify-otp', { email, otp }),
-  register: (data) => authApi_instance.post('/api/auth/register', data),
-  login: (email, password) => authApi_instance.post('/api/auth/login', { email, password }),
+  checkEmail: (email) => authInstance.post('/api/auth/check-email', { email }),
+  verifyOtp: (email, otp) => authInstance.post('/api/auth/verify-otp', { email, otp }),
+  register: (data) => authInstance.post('/api/auth/register', data),
+  login: (email, password) => authInstance.post('/api/auth/login', { email, password }),
 }
 
 export const userApi = {
-  getProfile: () => userApi_instance.get('/api/users/profile'),
-  updateProfile: (data) => userApi_instance.put('/api/users/profile', data),
+  getProfile: () => userInstance.get('/api/users/profile'),
+  updateProfile: (data) => userInstance.put('/api/users/profile', data),
 }
 
-export default authApi_instance
+export const jobApi = {
+  getAllJobs: () => jobInstance.get('/api/jobs'),
+  getJob: (id) => jobInstance.get(`/api/jobs/${id}`),
+  applyToJob: (id) => jobInstance.post(`/api/jobs/${id}/apply`),
+  getMyApplications: () => jobInstance.get('/api/jobs/my-applications'),
+}
+
+export default authInstance
