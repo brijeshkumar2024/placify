@@ -11,6 +11,7 @@ import Applications from './pages/dashboard/Applications'
 import MockInterview from './pages/dashboard/MockInterview'
 import CareerRoadmap from './pages/dashboard/CareerRoadmap'
 import MyProgress from './pages/dashboard/MyProgress'
+import Profile from './pages/dashboard/Profile'
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -36,6 +37,7 @@ function App() {
         <Route path="interview" element={<MockInterview />} />
         <Route path="roadmap" element={<CareerRoadmap />} />
         <Route path="analytics" element={<MyProgress />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="notifications" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Notifications — coming next</h2></div>} />
         <Route path="settings" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Settings — coming next</h2></div>} />
       </Route>

@@ -1,8 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/authStore'
+
 import {
   LayoutDashboard, Briefcase, FileText, Mic,
-  Map, BarChart2, Bell, Settings, LogOut, ChevronRight
+  Map, BarChart2, Bell, Settings, LogOut, ChevronRight, User
 } from 'lucide-react'
 
 const navItems = [
@@ -12,6 +13,7 @@ const navItems = [
   { to: '/dashboard/interview', icon: Mic, label: 'Mock interview' },
   { to: '/dashboard/roadmap', icon: Map, label: 'Career roadmap' },
   { to: '/dashboard/analytics', icon: BarChart2, label: 'My progress' },
+  { to: '/dashboard/profile', icon: User, label: 'My profile' },
 ]
 
 export default function Sidebar() {
