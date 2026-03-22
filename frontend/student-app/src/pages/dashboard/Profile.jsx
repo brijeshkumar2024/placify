@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { Plus, Trash2, Upload, CheckCircle, User, BookOpen, Code, Briefcase } from 'lucide-react'
+import { userApi } from '../../services/api'
 
 const steps = [
   { id: 1, label: 'Basic info', icon: User },
@@ -20,6 +21,8 @@ export default function Profile() {
   const [selectedSkills, setSelectedSkills] = useState(['Java', 'DSA', 'SQL'])
   const [resumeFile, setResumeFile] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [saveLoading, setSaveLoading] = useState(false)
 
   const { register, handleSubmit, control, formState: { errors } } = useForm({
     defaultValues: {
@@ -39,15 +42,45 @@ export default function Profile() {
   const { fields: eduFields, append: addEdu, remove: removeEdu } = useFieldArray({ control, name: 'education' })
   const { fields: expFields, append: addExp, remove: removeExp } = useFieldArray({ control, name: 'experience' })
 
+  useEffect(() => {
+    setLoading(true)
+    userApi.getProfile()
+      .then(res => {
+        const p = res.data.data
+        if (p?.skills?.length) setSelectedSkills(p.skills)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
   const toggleSkill = (skill) => {
     setSelectedSkills(prev =>
       prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
     )
   }
 
-  const onSubmit = (data) => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  const onSubmit = async (data) => {
+    setSaveLoading(true)
+    try {
+      await userApi.updateProfile({
+        fullName: data.fullName,
+        phone: data.phone,
+        branch: data.branch,
+        cgpa: parseFloat(data.cgpa) || 0,
+        graduationYear: parseInt(data.graduationYear) || 2026,
+        linkedinUrl: data.linkedin,
+        githubUrl: data.github,
+        skills: selectedSkills,
+        education: data.education,
+        experience: data.experience,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error('Profile update failed', err)
+    } finally {
+      setSaveLoading(false)
+    }
   }
 
   const completionPct = Math.round(
@@ -68,6 +101,10 @@ export default function Profile() {
           <p className="text-xs text-gray-400">complete</p>
         </div>
       </div>
+
+      {loading && (
+        <p className="mb-4 text-sm text-gray-500">Loading profile...</p>
+      )}
 
       {/* Progress bar */}
       <div className="w-full bg-gray-100 rounded-full h-2 mb-8">
@@ -404,7 +441,10 @@ export default function Profile() {
               type="submit"
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
             >
-              {saved ? <><CheckCircle size={16} /> Saved!</> : 'Save profile'}
+              {saved
+                ? <><CheckCircle size={16} /> Saved!</>
+                : saveLoading ? 'Saving...' : 'Save profile'
+              }
             </button>
           )}
         </div>
