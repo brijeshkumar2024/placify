@@ -3,7 +3,7 @@ import axios from 'axios'
 const createInstance = (baseURL) => {
   const instance = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' }, timeout: 10000 })
   instance.interceptors.request.use((config) => {
-    const token = localStorage.getItem('placify_recruiter_token')
+    const token = localStorage.getItem('placify_token')
     if (token) config.headers.Authorization = `Bearer ${token}`
     return config
   })
@@ -11,7 +11,7 @@ const createInstance = (baseURL) => {
     (res) => res,
     (err) => {
       if (err.response?.status === 401) {
-        localStorage.removeItem('placify_recruiter_token')
+        localStorage.removeItem('placify_token')
         window.location.href = '/login'
       }
       return Promise.reject(err)
@@ -21,7 +21,8 @@ const createInstance = (baseURL) => {
 }
 
 const authInstance = createInstance('http://localhost:8081')
-const jobInstance = createInstance('http://localhost:8083')
+const userInstance = createInstance('http://localhost:8082')
+const jobInstance  = createInstance('http://localhost:8083')
 
 export const authApi = {
   checkEmail: (email) => authInstance.post('/api/auth/check-email', { email }),
@@ -30,11 +31,16 @@ export const authApi = {
   login: (email, password) => authInstance.post('/api/auth/login', { email, password }),
 }
 
+export const userApi = {
+  getProfile: () => userInstance.get('/api/users/profile'),
+  updateProfile: (data) => userInstance.put('/api/users/profile', data),
+}
+
 export const jobApi = {
   getAllJobs: () => jobInstance.get('/api/jobs'),
   getJob: (id) => jobInstance.get(`/api/jobs/${id}`),
-  createJob: (data) => jobInstance.post('/api/jobs', data),
-  getApplicants: (jobId) => jobInstance.get(`/api/jobs/${jobId}/applicants`),
+  applyToJob: (id) => jobInstance.post(`/api/jobs/${id}/apply`),
+  getMyApplications: () => jobInstance.get('/api/jobs/my-applications'),
 }
 
 export default authInstance
