@@ -1,7 +1,11 @@
 import axios from 'axios'
 
 const createInstance = (baseURL) => {
-  const instance = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' }, timeout: 10000 })
+  const instance = axios.create({
+    baseURL,
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 10000,
+  })
   instance.interceptors.request.use((config) => {
     const token = localStorage.getItem('placify_recruiter_token')
     if (token) config.headers.Authorization = `Bearer ${token}`
