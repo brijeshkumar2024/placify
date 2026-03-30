@@ -9,10 +9,26 @@ spring:
       uri: ${MONGODB_URI:mongodb://localhost:27017/campus_placement}
       database: campus_placement
       auto-index-creation: true
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
 
 jwt:
   secret: ${JWT_SECRET:4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==}
 
 logging:
   level:
-    com.placement: DEBUG
+    com.placement: INFO
+
+placement:
+  service:
+    url: ${PLACEMENT_SERVICE_URL:http://localhost:8084}

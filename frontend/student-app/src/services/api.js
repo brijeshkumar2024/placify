@@ -1,27 +1,62 @@
 import axios from 'axios'
+import useAuthStore, { TOKEN_KEY } from '../store/authStore'
+import { isAuthEndpoint, isTokenExpired } from '../utils/auth'
+
+let handlingUnauthorized = false
+
+const redirectToLogin = () => {
+  if (typeof globalThis.window !== 'undefined' && globalThis.location.pathname !== '/login') {
+    globalThis.location.replace('/login')
+  }
+}
+
+const handleUnauthorized = () => {
+  if (handlingUnauthorized) return
+
+  handlingUnauthorized = true
+  useAuthStore.getState().logout()
+  redirectToLogin()
+
+  globalThis.setTimeout(() => {
+    handlingUnauthorized = false
+  }, 0)
+}
 
 const createInstance = (baseURL) => {
   const instance = axios.create({
     baseURL,
     headers: { 'Content-Type': 'application/json' },
-    timeout: 10000
+    timeout: 10000,
   })
 
-  instance.interceptors.request.use((config) => {
-    const token = localStorage.getItem('placify_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+  instance.interceptors.request.use(
+    (config) => {
+      const token = sessionStorage.getItem(TOKEN_KEY)
+
+      if (token) {
+        if (isTokenExpired(token)) {
+          handleUnauthorized()
+          return Promise.reject(new axios.CanceledError('Session expired'))
+        }
+
+        config.headers = config.headers || {}
+        config.headers.Authorization = `Bearer ${token}`
+      }
+
+      return config
     }
-    return config
-  })
+  )
 
   instance.interceptors.response.use(
     (res) => res,
     (err) => {
-      if (err.response?.status === 401) {
-        localStorage.removeItem('placify_token')
-        window.location.href = '/login'
+      const hasSession = Boolean(sessionStorage.getItem(TOKEN_KEY))
+      const requestUrl = err.config?.url || ''
+
+      if (err.response?.status === 401 && hasSession && !isAuthEndpoint(requestUrl)) {
+        handleUnauthorized()
       }
+
       return Promise.reject(err)
     }
   )

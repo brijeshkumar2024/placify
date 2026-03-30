@@ -10,4 +10,6 @@ public interface PlacementApplicationRepository extends ReactiveMongoRepository<
     Flux<PlacementApplication> findByStudentId(String studentId);
     Flux<PlacementApplication> findByJobId(String jobId);
     Mono<Long> countByStatus(PlacementApplication.ApplicationStatus status);
+    Mono<Long> countByJobId(String jobId);
+    Flux<PlacementApplication> findByStudentIdOrderByAppliedAtDesc(String studentId);
 }

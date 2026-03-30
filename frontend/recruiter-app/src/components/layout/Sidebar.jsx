@@ -1,71 +1,158 @@
+import { AnimatePresence, motion } from 'framer-motion'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, LogOut, Plus, X } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
-import { LayoutDashboard, Briefcase, Plus, LogOut, ChevronRight } from 'lucide-react'
+import { sidebarSections } from './navigation'
 
-const navItems = [
-  { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/dashboard/post-job', icon: Plus,            label: 'Post a job' },
-  { to: '/dashboard/my-jobs',  icon: Briefcase,       label: 'My jobs' },
-]
-
-export default function Sidebar() {
+export default function Sidebar({
+  collapsed = false,
+  mobileOpen = false,
+  onToggleCollapse = () => {},
+  onClose = () => {},
+}) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const handleLogout = () => { logout(); navigate('/login') }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   const fullName = user?.fullName || user?.email?.split('@')[0] || 'Recruiter'
-  const initials = fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const initials = fullName.split(' ').map((name) => name[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <aside className="w-64 min-h-screen flex flex-col border-r border-white/60 bg-white/70 backdrop-blur-xl shadow-xl">
+    <>
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-slate-900/35 lg:hidden"
+            aria-label="Close navigation"
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Logo */}
-      <div className="px-6 py-5 border-b border-gray-100/80">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Plac<span className="text-indigo-600">ify</span>
-        </h1>
-        <p className="text-xs text-gray-400 mt-0.5">Recruiter portal</p>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={to === '/dashboard'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
-                isActive
-                  ? 'bg-indigo-50 text-indigo-700 shadow-sm'
-                  : 'text-gray-600 hover:bg-white/80 hover:text-gray-900 hover:shadow-sm'
-              }`
-            }>
-            {({ isActive }) => (
-              <>
-                <Icon size={18} className={isActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'} />
-                <span>{label}</span>
-                {isActive && <ChevronRight size={14} className="ml-auto text-indigo-400" />}
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
-
-      {/* User */}
-      <div className="px-3 pb-5 pt-3 border-t border-gray-100/80">
-        <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100/60">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-semibold text-white text-xs shadow"
-            style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
-            {initials}
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? 92 : 280 }}
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 lg:static lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+          <div className="min-w-0">
+            <p className="text-lg font-bold text-slate-900">
+              Plac<span className="text-blue-600">ify</span>
+            </p>
+            {!collapsed && <p className="text-xs text-slate-500">Recruiter workspace</p>}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{fullName.split(' ')[0]}</p>
-            <p className="text-xs text-indigo-500 font-medium">Recruiter</p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="hidden rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-gray-100 lg:inline-flex"
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-gray-100 lg:hidden"
+              aria-label="Close sidebar"
+            >
+              <X size={16} />
+            </button>
           </div>
-          <button onClick={handleLogout} title="Sign out"
-            className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50">
-            <LogOut size={15} />
+        </div>
+
+        <div className="px-3 py-4">
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/dashboard/post-job')
+              onClose()
+            }}
+            className="btn-premium w-full justify-center rounded-2xl"
+          >
+            <Plus size={16} />
+            {!collapsed && <span>Post new role</span>}
           </button>
         </div>
-      </div>
-    </aside>
+
+        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+          {sidebarSections.map((section) => (
+            <div key={section.title} className="mb-5">
+              {!collapsed && (
+                <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  {section.title}
+                </p>
+              )}
+
+              <div className="space-y-1">
+                {section.items.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === '/dashboard'}
+                    onClick={onClose}
+                    title={label}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-600 shadow-sm'
+                          : 'text-slate-600 hover:bg-gray-100 hover:text-slate-900'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon size={18} className={isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-700'} />
+                        {!collapsed && <span>{label}</span>}
+                        {!collapsed && isActive && <ChevronRight size={14} className="ml-auto text-blue-400" />}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-slate-200 p-3">
+          <div className={`rounded-2xl border border-slate-200 bg-slate-50 ${collapsed ? 'p-2' : 'p-3'}`}>
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-500 text-xs font-semibold text-white shadow-sm"
+              >
+                {initials}
+              </div>
+
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">{fullName}</p>
+                  <p className="text-xs text-slate-500">Premium recruiter</p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Logout"
+                className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.aside>
+    </>
   )
 }

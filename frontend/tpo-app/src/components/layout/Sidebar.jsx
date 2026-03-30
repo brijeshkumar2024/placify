@@ -2,13 +2,14 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../store/authStore'
 import {
   LayoutDashboard, Building2, Users, FileBarChart,
-  Bell, Settings, LogOut, ChevronRight, GraduationCap
+  Bell, Settings, LogOut, ChevronRight, GraduationCap, Activity
 } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard',              icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/dashboard/drives',       icon: Building2,       label: 'Placement drives' },
   { to: '/dashboard/students',     icon: GraduationCap,   label: 'Students' },
+  { to: '/dashboard/tracker',      icon: Activity,        label: 'Placement tracker' },
   { to: '/dashboard/companies',    icon: Building2,       label: 'Companies' },
   { to: '/dashboard/reports',      icon: FileBarChart,    label: 'Reports' },
 ]

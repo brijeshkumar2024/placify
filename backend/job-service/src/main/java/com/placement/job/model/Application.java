@@ -24,6 +24,7 @@ public class Application {
     private Integer rating;
     private String notes;
     private Integer matchScore;
+    private Instant interviewDateTime;
     @CreatedDate private Instant appliedAt;
     private Instant updatedAt;
 
@@ -64,6 +65,8 @@ public class Application {
     public void setMatchScore(Integer matchScore) { this.matchScore = matchScore; }
     public Instant getAppliedAt() { return appliedAt; }
     public void setAppliedAt(Instant appliedAt) { this.appliedAt = appliedAt; }
+    public Instant getInterviewDateTime() { return interviewDateTime; }
+    public void setInterviewDateTime(Instant interviewDateTime) { this.interviewDateTime = interviewDateTime; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

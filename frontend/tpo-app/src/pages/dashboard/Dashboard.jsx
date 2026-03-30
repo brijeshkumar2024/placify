@@ -26,6 +26,11 @@ export default function Dashboard() {
   const [recruiterMsg, setRecruiterMsg] = useState('')
   const name = (user?.fullName || user?.email?.split('@')[0] || 'TPO').split(' ')[0]
 
+  const fetchStats = () =>
+    placementApi.getStats()
+      .then(res => setStats(res.data.data))
+      .catch(() => {})
+
   useEffect(() => {
     Promise.all([
       jobApi.getAllJobs(),
@@ -46,6 +51,12 @@ export default function Dashboard() {
       })
       .catch(() => setError('Could not load live data'))
       .finally(() => setLoading(false))
+  }, [])
+
+  // Poll stats every 5 seconds to pick up recruiter status changes
+  useEffect(() => {
+    const interval = setInterval(fetchStats, 5000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleCreateRecruiter = () => {
@@ -75,6 +86,13 @@ export default function Dashboard() {
     { label: 'Offers made', value: stats?.offersMade ?? '–', icon: Award, color: 'text-purple-600', bg: 'bg-purple-50', accent: 'from-purple-500/15 to-purple-100/35' },
     { label: 'At-risk students', value: stats?.atRiskStudents ?? atRisk.length ?? '–', icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50', accent: 'from-amber-400/20 to-amber-100/40' },
   ]
+
+  const funnelStats = stats ? [
+    { label: 'Shortlisted', value: stats.shortlistedStudents ?? 0, color: 'bg-amber-400' },
+    { label: 'Interview', value: stats.interviewStudents ?? 0, color: 'bg-blue-500' },
+    { label: 'Offers', value: stats.offersMade ?? 0, color: 'bg-green-500' },
+    { label: 'Rejected', value: stats.rejectedStudents ?? 0, color: 'bg-red-400' },
+  ] : []
 
   const recentActivity = useMemo(() => ([
     { text: `Active jobs: ${jobs.filter(j => j.status === 'ACTIVE').length}`, time: 'Live', type: 'job' },
@@ -264,6 +282,35 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Placement funnel */}
+        <div className="glass-card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={18} className="text-indigo-600" />
+            <h3 className="font-semibold text-gray-900">Placement funnel</h3>
+          </div>
+          {funnelStats.length === 0 ? (
+            <p className="text-sm text-gray-400">Loading funnel data…</p>
+          ) : (
+            <div className="space-y-3">
+              {funnelStats.map(({ label, value, color }) => {
+                const max = Math.max(...funnelStats.map(f => f.value), 1)
+                return (
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-gray-600">{label}</span>
+                      <span className="text-xs font-semibold text-gray-900">{value}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className={`${color} h-2 rounded-full transition-all duration-700`}
+                        style={{ width: `${(value / max) * 100}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Recruiter creation */}

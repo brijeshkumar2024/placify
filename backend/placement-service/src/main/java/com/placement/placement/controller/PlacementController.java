@@ -15,14 +15,33 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Mono;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/placement")
 public class PlacementController {
 
+    private static final Logger log = LoggerFactory.getLogger(PlacementController.class);
     private final PlacementService placementService;
 
     public PlacementController(PlacementService placementService) {
         this.placementService = placementService;
+    }
+
+    // Internal sync endpoint called by job-service when recruiter updates status
+    @PostMapping("/internal/sync-status")
+    public Mono<ResponseEntity<ApiResponse<Object>>> syncStatus(
+            @RequestBody java.util.Map<String, String> payload) {
+        String studentId = payload.get("studentId");
+        String status    = payload.get("status");
+        String company   = payload.get("company");
+        log.info("[SyncEndpoint] Received sync | studentId={} status={} company={}", studentId, status, company);
+        return placementService.syncStudentStatus(studentId, status, company)
+                .doOnSuccess(v -> log.info("[SyncEndpoint] ✅ StudentPlacementStatus updated | studentId={} status={}", studentId, status))
+                .doOnError(ex -> log.error("[SyncEndpoint] ❌ Sync failed | studentId={} status={} | error={}", studentId, status, ex.getMessage()))
+                .then(Mono.just(ResponseEntity.ok(ApiResponse.success("Synced.", (Object) null))))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.ok(ApiResponse.success("Sync skipped: " + ex.getMessage(), (Object) null))));
     }
 
     @GetMapping("/health")
@@ -142,6 +161,20 @@ public class PlacementController {
     public Mono<ResponseEntity<ApiResponse<Object>>> importStudents(@RequestBody StudentImportRequest request) {
         return placementService.importStudents(request.getStudents(), "import")
                 .map(saved -> ResponseEntity.ok(ApiResponse.success("Students imported.", (Object) saved)));
+    }
+
+    @GetMapping("/students/{id}")
+    public Mono<ResponseEntity<ApiResponse<Object>>> studentDetail(@PathVariable String id) {
+        return placementService.getStudentDetail(id)
+                .map(detail -> ResponseEntity.ok(ApiResponse.success("Student detail fetched.", (Object) detail)))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()))));
+    }
+
+    @DeleteMapping("/students/{id}")
+    public Mono<ResponseEntity<ApiResponse<Object>>> deleteStudent(@PathVariable String id) {
+        return placementService.deleteStudent(id)
+                .then(Mono.just(ResponseEntity.ok(ApiResponse.success("Student removed.", (Object) null))))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()))));
     }
 
     @PatchMapping("/students/{id}")

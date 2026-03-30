@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, Briefcase, Users, AlertTriangle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Briefcase, Users, AlertTriangle } from 'lucide-react'
 import { jobApi } from '../../services/api'
 
 export default function Companies() {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  const navigate = useNavigate()
 
   useEffect(() => {
     jobApi.getAllJobs()
@@ -74,7 +77,11 @@ export default function Companies() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {companies.map((c, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 transition-all">
+                <tr
+                  key={idx}
+                  onClick={() => navigate(`/dashboard/companies/${encodeURIComponent(c.name)}`)}
+                  className="hover:bg-blue-50 hover:shadow-sm transition-all cursor-pointer select-none"
+                >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-50 text-blue-700 rounded-xl flex items-center justify-center font-bold">

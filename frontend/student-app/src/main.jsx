@@ -5,6 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.jsx'
 
+// One-time migration: remove any tokens previously stored in localStorage
+// so old stale data doesn't interfere with sessionStorage-based auth
+;['placify_token', 'placify_user'].forEach(k => localStorage.removeItem(k))
+
 const queryClient = new QueryClient()
 
 createRoot(document.getElementById('root')).render(

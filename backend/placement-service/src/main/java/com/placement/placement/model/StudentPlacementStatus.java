@@ -19,7 +19,10 @@ public class StudentPlacementStatus {
     private String holdReason;
     private List<String> activeApplications;
     private Integer totalApplications;
+    private Integer shortlistedCount;
+    private Integer interviewCount;
     private Integer offersReceived;
+    private Integer rejectedCount;
     @CreatedDate
     private Instant createdAt;
 
@@ -43,8 +46,14 @@ public class StudentPlacementStatus {
     public void setActiveApplications(List<String> activeApplications) { this.activeApplications = activeApplications; }
     public Integer getTotalApplications() { return totalApplications; }
     public void setTotalApplications(Integer totalApplications) { this.totalApplications = totalApplications; }
+    public Integer getShortlistedCount() { return shortlistedCount; }
+    public void setShortlistedCount(Integer shortlistedCount) { this.shortlistedCount = shortlistedCount; }
+    public Integer getInterviewCount() { return interviewCount; }
+    public void setInterviewCount(Integer interviewCount) { this.interviewCount = interviewCount; }
     public Integer getOffersReceived() { return offersReceived; }
     public void setOffersReceived(Integer offersReceived) { this.offersReceived = offersReceived; }
+    public Integer getRejectedCount() { return rejectedCount; }
+    public void setRejectedCount(Integer rejectedCount) { this.rejectedCount = rejectedCount; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

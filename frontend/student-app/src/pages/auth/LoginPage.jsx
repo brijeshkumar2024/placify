@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { authApi } from '../../services/api'
+import { authApi, userApi } from '../../services/api'
 import useAuthStore from '../../store/authStore'
+import { mergeAuthUser } from '../../utils/auth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const setAuth = useAuthStore((s) => s.setAuth)
+  const location = useLocation()
+  const { setAuth, setUser, startAuthCheck, logout } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -16,13 +18,23 @@ export default function LoginPage() {
   const onSubmit = async ({ email, password }) => {
     setLoading(true)
     setError('')
+
     try {
       const res = await authApi.login(email, password)
-      const { accessToken, ...user } = res.data.data
-      setAuth(user, accessToken)
-      navigate('/dashboard')
+      const { accessToken, ...authUser } = res.data.data
+
+      setAuth(authUser, accessToken)
+      startAuthCheck()
+
+      const profileResponse = await userApi.getProfile()
+      const profile = profileResponse?.data?.data || {}
+      setUser(mergeAuthUser(authUser, profile))
+
+      const redirectTo = location.state?.from?.pathname || '/dashboard'
+      navigate(redirectTo, { replace: true })
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password')
+      logout({ broadcast: false })
+      setError(err.response?.data?.message || 'Unable to sign in. Please try again.')
     } finally {
       setLoading(false)
     }

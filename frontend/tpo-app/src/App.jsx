@@ -9,8 +9,11 @@ import Drives from './pages/dashboard/Drives'
 import Students from './pages/dashboard/Students'
 import Reports from './pages/dashboard/Reports'
 import Companies from './pages/dashboard/Companies'
+import CompanyDetails from './pages/dashboard/CompanyDetails'
 import Notifications from './pages/dashboard/Notifications'
 import useAuthStore from './store/authStore'
+
+import PlacementTracker from './pages/dashboard/PlacementTracker'
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -30,7 +33,9 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="drives" element={<Drives />} />
         <Route path="students" element={<Students />} />
+        <Route path="tracker" element={<PlacementTracker />} />
         <Route path="companies" element={<Companies />} />
+        <Route path="companies/:id" element={<CompanyDetails />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="settings" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Settings — coming soon</h2></div>} />

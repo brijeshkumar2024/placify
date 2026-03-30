@@ -1,28 +1,71 @@
 import { create } from 'zustand'
+import { broadcastAuthEvent } from '../utils/auth'
+
+export const TOKEN_KEY = 'placify_token'
+export const USER_KEY = 'placify_user'
+
+const readStoredUser = () => {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const raw = sessionStorage.getItem(USER_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    sessionStorage.removeItem(USER_KEY)
+    return null
+  }
+}
+
+const initialToken = typeof window !== 'undefined'
+  ? sessionStorage.getItem(TOKEN_KEY) || null
+  : null
 
 const useAuthStore = create((set) => ({
-  user: JSON.parse(sessionStorage.getItem('placify_user') || 'null'),
-  token: sessionStorage.getItem('placify_token') || null,
+  user: readStoredUser(),
+  token: initialToken,
   verifiedEmail: null,
+  authLoading: Boolean(initialToken),
+  authChecked: !initialToken,
 
   setVerifiedEmail: (email) => set({ verifiedEmail: email }),
 
+  startAuthCheck: () => set({ authLoading: true, authChecked: false }),
+
+  finishAuthCheck: () => set({ authLoading: false, authChecked: true }),
+
   setAuth: (user, token) => {
-    sessionStorage.setItem('placify_token', token)
-    sessionStorage.setItem('placify_user', JSON.stringify(user))
-    set({ user, token })
+    sessionStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(USER_KEY)
+    sessionStorage.setItem(TOKEN_KEY, token)
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+    set({ user, token, verifiedEmail: null, authLoading: true, authChecked: false })
+  },
+
+  setUser: (user) => {
+    if (user) {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+    } else {
+      sessionStorage.removeItem(USER_KEY)
+    }
+
+    set({ user, authLoading: false, authChecked: true })
   },
 
   patchUser: (fields) => set((state) => {
-    const updated = { ...state.user, ...fields }
-    sessionStorage.setItem('placify_user', JSON.stringify(updated))
-    return { user: updated }
+    const currentUser = state.user || {}
+    const updated = { ...currentUser, ...fields }
+    sessionStorage.setItem(USER_KEY, JSON.stringify(updated))
+    return { user: updated, authLoading: false, authChecked: true }
   }),
 
-  logout: () => {
-    sessionStorage.removeItem('placify_token')
-    sessionStorage.removeItem('placify_user')
-    set({ user: null, token: null })
+  logout: (options = {}) => {
+    sessionStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(USER_KEY)
+    set({ user: null, token: null, verifiedEmail: null, authLoading: false, authChecked: true })
+
+    if (options.broadcast !== false) {
+      broadcastAuthEvent('logout')
+    }
   },
 }))
 

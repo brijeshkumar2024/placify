@@ -43,15 +43,15 @@ export default function Profile() {
   const { fields: expFields, append: addExp, remove: removeExp } = useFieldArray({ control, name: 'experience' })
 
   useEffect(() => {
+    setLoading(true)
     userApi.getProfile()
       .then(res => {
-        const p = res.data.data
-        if (!p) return
-        if (p.skills?.length) setSelectedSkills(p.skills)
-        reset({
+        console.log('Profile API response:', res.data)
+        const p = res?.data?.data || res?.data || {}
+        const normalizedProfile = {
           fullName: p.fullName || '',
           phone: p.phone || '',
-          rollNumber: p.rollNumber || '',
+          rollNumber: p.rollNumber || p.rollNo || p.roll_number || '',
           branch: p.branch || 'Computer Science',
           cgpa: p.cgpa > 0 ? p.cgpa : '',
           graduationYear: p.graduationYear > 0 ? String(p.graduationYear) : '2026',
@@ -63,10 +63,22 @@ export default function Profile() {
           experience: p.experience?.length
             ? p.experience
             : [{ title: '', company: '', duration: '', description: '' }],
-        })
+        }
+
+        console.log('Profile form state after API call:', normalizedProfile)
+
+        if (p.skills?.length) {
+          setSelectedSkills(p.skills)
+        }
+        reset(normalizedProfile)
       })
-      .catch(() => {})
-  }, [])
+      .catch((err) => {
+        console.error('Profile fetch failed', err)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [reset])
 
   const toggleSkill = (skill) => {
     setSelectedSkills(prev =>
@@ -80,6 +92,7 @@ export default function Profile() {
       await userApi.updateProfile({
         fullName: data.fullName,
         phone: data.phone,
+        rollNumber: data.rollNumber || '',
         branch: data.branch,
         cgpa: parseFloat(data.cgpa) || 0,
         graduationYear: parseInt(data.graduationYear) || 2026,

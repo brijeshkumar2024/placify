@@ -7,7 +7,10 @@ import com.placement.job.dto.response.ApiResponse;
 import com.placement.job.model.Job;
 import com.placement.job.service.RecruiterService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -15,6 +18,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api/recruiter")
 public class RecruiterController {
 
+    private static final Logger log = LoggerFactory.getLogger(RecruiterController.class);
     private final RecruiterService recruiterService;
 
     public RecruiterController(RecruiterService recruiterService) {
@@ -51,6 +55,16 @@ public class RecruiterController {
 
     @PostMapping("/interview/schedule")
     public Mono<ResponseEntity<ApiResponse<Object>>> scheduleInterview(@Valid @RequestBody ScheduleInterviewRequest req) {
+        log.info("[InterviewSchedule] POST /api/recruiter/interview/schedule | applicationId={} studentEmail={} dateTime={}",
+                req.getApplicationId(), req.getStudentEmail(), req.getDateTime());
+
+        if (!StringUtils.hasText(req.getApplicationId())
+                || !StringUtils.hasText(req.getStudentEmail())
+                || req.getDateTime() == null) {
+            return Mono.just(ResponseEntity.badRequest().body(
+                    ApiResponse.error("Missing fields: applicationId, studentEmail, and dateTime are required.")));
+        }
+
         return recruiterService.scheduleInterview(req)
                 .map(intv -> ResponseEntity.ok(ApiResponse.success("Interview scheduled.", (Object) intv)));
     }
@@ -66,4 +80,5 @@ public class RecruiterController {
         return recruiterService.getStatusCounts(jobId)
                 .map(map -> ResponseEntity.ok(ApiResponse.success("Counts fetched.", (Object) map)));
     }
+
 }

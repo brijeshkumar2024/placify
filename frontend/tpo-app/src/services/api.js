@@ -34,6 +34,8 @@ export const authApi = {
 export const jobApi = {
   getAllJobs: () => jobInstance.get('/api/jobs'),
   getJob: (id) => jobInstance.get(`/api/jobs/${id}`),
+  getAllApplications: (status) => jobInstance.get('/api/tpo/applications', { params: status ? { status } : {} }),
+  getCompanyDetails: (name) => jobInstance.get(`/api/tpo/company/${encodeURIComponent(name)}`),
 }
 export const userApi = {
   getProfile: () => userInstance.get('/api/users/profile'),

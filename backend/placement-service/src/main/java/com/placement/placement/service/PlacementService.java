@@ -10,6 +10,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.http.codec.multipart.FilePart;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors;
 @Service
 public class PlacementService {
 
+    private static final Logger log = LoggerFactory.getLogger(PlacementService.class);
+
     private final PlacementApplicationRepository applicationRepository;
     private final PlacementDriveRepository driveRepository;
     private final StudentPlacementStatusRepository statusRepository;
@@ -43,6 +47,54 @@ public class PlacementService {
         this.statusRepository = statusRepository;
         this.studentRecordRepository = studentRecordRepository;
         this.jwtUtil = jwtUtil;
+    }
+
+    // ✅ INTERNAL SYNC — called by job-service when recruiter updates status
+    public Mono<Void> syncStudentStatus(String studentId, String status, String company) {
+        if (studentId == null || studentId.isBlank() || status == null) {
+            log.warn("[PlacementSync] Skipping — null studentId or status");
+            return Mono.empty();
+        }
+        log.info("[PlacementSync] Updating StudentPlacementStatus | studentId={} status={}", studentId, status);
+
+        return statusRepository.findByStudentId(studentId)
+                .defaultIfEmpty(new StudentPlacementStatus())
+                .flatMap(s -> {
+                    if (s.getStudentId() == null) s.setStudentId(studentId);
+                    if (s.getCreatedAt() == null) s.setCreatedAt(Instant.now());
+
+                    switch (status.toUpperCase()) {
+                        case "SHORTLISTED" -> {
+                            s.setShortlistedCount((s.getShortlistedCount() != null ? s.getShortlistedCount() : 0) + 1);
+                            log.debug("[PlacementSync] shortlistedCount incremented for studentId={}", studentId);
+                        }
+                        case "INTERVIEW"   -> {
+                            s.setInterviewCount((s.getInterviewCount() != null ? s.getInterviewCount() : 0) + 1);
+                            log.debug("[PlacementSync] interviewCount incremented for studentId={}", studentId);
+                        }
+                        case "OFFER", "HIRED" -> {
+                            s.setOffersReceived((s.getOffersReceived() != null ? s.getOffersReceived() : 0) + 1);
+                            s.setPlaced(true);
+                            if (company != null && !company.isBlank()) s.setPlacedCompany(company);
+                            log.debug("[PlacementSync] offersReceived incremented, placed=true for studentId={}", studentId);
+                        }
+                        case "REJECTED" -> {
+                            s.setRejectedCount((s.getRejectedCount() != null ? s.getRejectedCount() : 0) + 1);
+                            log.debug("[PlacementSync] rejectedCount incremented for studentId={}", studentId);
+                        }
+                        case "HOLD"     -> {
+                            s.setOnHold(true);
+                            log.debug("[PlacementSync] onHold=true for studentId={}", studentId);
+                        }
+                        default -> {
+                            log.warn("[PlacementSync] Unknown status '{}' — skipping update", status);
+                            return Mono.empty();
+                        }
+                    }
+                    return statusRepository.save(s)
+                            .doOnSuccess(saved -> log.info("[PlacementSync] ✅ Saved StudentPlacementStatus | studentId={} status={}", studentId, status));
+                })
+                .then();
     }
 
     // ✅ APPLY (JWT + SAFE)
@@ -135,6 +187,7 @@ public class PlacementService {
         return applicationRepository.findById(applicationId)
                 .switchIfEmpty(Mono.error(new AppException("Application not found", HttpStatus.NOT_FOUND)))
                 .flatMap(app -> {
+                    PlacementApplication.ApplicationStatus previousStatus = app.getStatus();
 
                     if (request.getStatus() != null) {
                         try {
@@ -155,35 +208,75 @@ public class PlacementService {
                     app.setUpdatedAt(Instant.now());
 
                     return applicationRepository.save(app)
-                            .flatMap(saved -> updateStudentStatusOnStatusChange(saved).thenReturn(saved));
+                            .flatMap(saved -> updateStudentStatusOnStatusChange(saved, previousStatus)
+                                    .thenReturn(saved));
                 });
     }
 
-    // ✅ SAFE STATUS CHANGE HANDLER
-    private Mono<StudentPlacementStatus> updateStudentStatusOnStatusChange(PlacementApplication app) {
+    // ✅ SAFE STATUS CHANGE HANDLER — updates all aggregate counters
+    private Mono<StudentPlacementStatus> updateStudentStatusOnStatusChange(
+            PlacementApplication app, PlacementApplication.ApplicationStatus previousStatus) {
 
         return statusRepository.findByStudentId(app.getStudentId())
                 .defaultIfEmpty(new StudentPlacementStatus())
                 .flatMap(status -> {
-
                     status.setStudentId(app.getStudentId());
 
                     List<String> active = status.getActiveApplications() == null
-                            ? new ArrayList<>()
-                            : new ArrayList<>(status.getActiveApplications());
+                            ? new ArrayList<>() : new ArrayList<>(status.getActiveApplications());
 
-                    if (app.getStatus() == PlacementApplication.ApplicationStatus.REJECTED) {
-                        active.remove(app.getId());
-                    }
+                    int shortlisted = status.getShortlistedCount() != null ? status.getShortlistedCount() : 0;
+                    int interview   = status.getInterviewCount()   != null ? status.getInterviewCount()   : 0;
+                    int offers      = status.getOffersReceived()   != null ? status.getOffersReceived()   : 0;
+                    int rejected    = status.getRejectedCount()    != null ? status.getRejectedCount()    : 0;
 
-                    if (app.getStatus() == PlacementApplication.ApplicationStatus.OFFER) {
-                        int offers = status.getOffersReceived() == null ? 0 : status.getOffersReceived();
-                        status.setOffersReceived(offers + 1);
+                    switch (app.getStatus()) {
+                        case SHORTLISTED -> status.setShortlistedCount(shortlisted + 1);
+                        case INTERVIEW   -> status.setInterviewCount(interview + 1);
+                        case OFFER       -> {
+                            status.setOffersReceived(offers + 1);
+                            status.setPlaced(true);
+                            if (app.getStudentBranch() != null) status.setPlacedCompany(app.getStudentBranch());
+                        }
+                        case REJECTED    -> {
+                            status.setRejectedCount(rejected + 1);
+                            active.remove(app.getId());
+                        }
+                        case HOLD        -> status.setOnHold(true);
+                        default          -> {}
                     }
 
                     status.setActiveApplications(active);
-
                     return statusRepository.save(status);
+                });
+    }
+
+    // ✅ GET STUDENT DETAIL WITH FULL APPLICATION HISTORY
+    public Mono<com.placement.placement.dto.response.StudentDetailResponse> getStudentDetail(String studentId) {
+        Mono<StudentPlacementStatus> statusMono = statusRepository.findByStudentId(studentId)
+                .defaultIfEmpty(new StudentPlacementStatus());
+
+        Mono<List<com.placement.placement.dto.response.StudentDetailResponse.ApplicationSummary>> appsMono =
+                applicationRepository.findByStudentIdOrderByAppliedAtDesc(studentId)
+                        .map(com.placement.placement.dto.response.StudentDetailResponse.ApplicationSummary::from)
+                        .collectList();
+
+        // Pull student name/email/cgpa/branch from the first application record
+        Mono<PlacementApplication> firstAppMono = applicationRepository
+                .findByStudentId(studentId).next().defaultIfEmpty(new PlacementApplication());
+
+        return Mono.zip(statusMono, appsMono, firstAppMono)
+                .map(tuple -> {
+                    StudentPlacementStatus status = tuple.getT1();
+                    if (status.getStudentId() == null) status.setStudentId(studentId);
+                    PlacementApplication first = tuple.getT3();
+                    return com.placement.placement.dto.response.StudentDetailResponse.from(
+                            status,
+                            tuple.getT2(),
+                            first.getStudentName(),
+                            first.getStudentEmail(),
+                            first.getStudentCgpa(),
+                            first.getStudentBranch());
                 });
     }
 
@@ -274,23 +367,33 @@ public class PlacementService {
         return Mono.zip(
                 applicationRepository.count(),
                 applicationRepository.countByStatus(PlacementApplication.ApplicationStatus.OFFER),
+                applicationRepository.countByStatus(PlacementApplication.ApplicationStatus.SHORTLISTED),
+                applicationRepository.countByStatus(PlacementApplication.ApplicationStatus.INTERVIEW),
+                applicationRepository.countByStatus(PlacementApplication.ApplicationStatus.REJECTED),
                 driveRepository.countByStatus(PlacementDrive.DriveStatus.ACTIVE),
-                driveRepository.countByStatus(PlacementDrive.DriveStatus.UPCOMING),
+                driveRepository.countByStatus(PlacementDrive.DriveStatus.UPCOMING)
+        ).flatMap(tuple ->
+            Mono.zip(
                 driveRepository.count(),
                 statusRepository.countByPlaced(true),
-                statusRepository.countByOnHold(true)
-        ).flatMap(tuple -> getAtRiskStudents().count().map(atRisk -> {
-            StatsResponse stats = new StatsResponse();
-            stats.setTotalApplications(tuple.getT1());
-            stats.setOffersMade(tuple.getT2());
-            stats.setActiveDrives(tuple.getT3());
-            stats.setUpcomingDrives(tuple.getT4());
-            stats.setTotalDrives(tuple.getT5());
-            stats.setPlacedStudents(tuple.getT6());
-            stats.setOnHoldStudents(tuple.getT7());
-            stats.setAtRiskStudents(atRisk);
-            return stats;
-        }));
+                statusRepository.countByOnHold(true),
+                getAtRiskStudents().count()
+            ).map(tuple2 -> {
+                StatsResponse stats = new StatsResponse();
+                stats.setTotalApplications(tuple.getT1());
+                stats.setOffersMade(tuple.getT2());
+                stats.setShortlistedStudents(tuple.getT3());
+                stats.setInterviewStudents(tuple.getT4());
+                stats.setRejectedStudents(tuple.getT5());
+                stats.setActiveDrives(tuple.getT6());
+                stats.setUpcomingDrives(tuple.getT7());
+                stats.setTotalDrives(tuple2.getT1());
+                stats.setPlacedStudents(tuple2.getT2());
+                stats.setOnHoldStudents(tuple2.getT3());
+                stats.setAtRiskStudents(tuple2.getT4());
+                return stats;
+            })
+        );
     }
 
     public Flux<StudentPlacementStatus> getAtRiskStudents() {
@@ -319,6 +422,13 @@ public class PlacementService {
                     if (request.getCgpa() != null) record.setCgpa(request.getCgpa());
                     return studentRecordRepository.save(record);
                 });
+    }
+
+    // ✅ DELETE STUDENT
+    public Mono<Void> deleteStudent(String id) {
+        return studentRecordRepository.findById(id)
+                .switchIfEmpty(Mono.error(new AppException("Student not found", HttpStatus.NOT_FOUND)))
+                .flatMap(record -> studentRecordRepository.deleteById(record.getId()));
     }
 
     // 🆕 STUDENTS CRUD FOR TPO

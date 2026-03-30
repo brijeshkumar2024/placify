@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { authApi } from '../../services/api'
+import { authApi, userApi } from '../../services/api'
 import useAuthStore from '../../store/authStore'
+import { mergeAuthUser } from '../../utils/auth'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const { verifiedEmail, setAuth } = useAuthStore()
+  const { verifiedEmail, setAuth, setUser, startAuthCheck, logout } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPass, setShowPass] = useState(false)
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { email: verifiedEmail }
   })
 
@@ -23,12 +24,21 @@ export default function RegisterPage() {
   const onSubmit = async (data) => {
     setLoading(true)
     setError('')
+
     try {
       const res = await authApi.register(data)
-      const { accessToken, ...user } = res.data.data
-      setAuth(user, accessToken)
-      navigate('/dashboard')
+      const { accessToken, ...authUser } = res.data.data
+
+      setAuth(authUser, accessToken)
+      startAuthCheck()
+
+      const profileResponse = await userApi.getProfile()
+      const profile = profileResponse?.data?.data || {}
+      setUser(mergeAuthUser(authUser, profile))
+
+      navigate('/dashboard', { replace: true })
     } catch (err) {
+      logout({ broadcast: false })
       setError(err.response?.data?.message || 'Registration failed')
     } finally {
       setLoading(false)

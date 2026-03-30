@@ -17,27 +17,55 @@ import MyProgress from './pages/dashboard/MyProgress'
 import Profile from './pages/dashboard/Profile'
 import Notifications from './pages/dashboard/Notifications'
 import Drives from './pages/dashboard/Drives'
-import { userApi } from './services/api'
-
-function ProtectedRoute({ children }) {
-  const token = useAuthStore((s) => s.token)
-  return token ? children : <Navigate to="/login" replace />
-}
+import AuthGuard from './components/auth/AuthGuard'
+import { AUTH_SYNC_KEY, decodeJwt } from './utils/auth'
 
 function App() {
-  const { user, token, patchUser } = useAuthStore()
+  const token = useAuthStore((s) => s.token)
+  const logout = useAuthStore((s) => s.logout)
 
-  // If user is logged in but fullName is missing (stale cache), fetch from profile
   useEffect(() => {
-    if (token && user && !user.fullName) {
-      userApi.getProfile()
-        .then(res => {
-          const profile = res.data?.data
-          if (profile?.fullName) patchUser({ fullName: profile.fullName })
-        })
-        .catch(() => {})
+    if (!token) {
+      return undefined
     }
-  }, [token])
+
+    const payload = decodeJwt(token)
+    const expiryAt = payload?.exp ? payload.exp * 1000 : 0
+
+    if (!expiryAt || expiryAt <= Date.now()) {
+      logout()
+      return undefined
+    }
+
+    const timeoutId = globalThis.setTimeout(() => {
+      logout()
+      if (globalThis.location?.pathname !== '/login') {
+        globalThis.location.replace('/login')
+      }
+    }, Math.max(expiryAt - Date.now(), 0))
+
+    return () => globalThis.clearTimeout(timeoutId)
+  }, [token, logout])
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key !== AUTH_SYNC_KEY || !event.newValue) {
+        return
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue)
+        if (payload?.type === 'logout') {
+          logout({ broadcast: false })
+        }
+      } catch {
+        // Ignore malformed sync events.
+      }
+    }
+
+    globalThis.addEventListener('storage', handleStorage)
+    return () => globalThis.removeEventListener('storage', handleStorage)
+  }, [logout])
 
   return (
     <Routes>
@@ -49,9 +77,9 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       
       <Route path="/dashboard" element={
-        <ProtectedRoute>
+        <AuthGuard>
           <DashboardLayout />
-        </ProtectedRoute>
+        </AuthGuard>
       }>
         <Route index element={<Dashboard />} />
         <Route path="jobs" element={<JobFeed />} />

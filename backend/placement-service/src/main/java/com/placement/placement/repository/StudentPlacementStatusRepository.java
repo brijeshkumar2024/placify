@@ -11,4 +11,5 @@ public interface StudentPlacementStatusRepository extends ReactiveMongoRepositor
     Mono<Long> countByOnHold(boolean onHold);
     Flux<StudentPlacementStatus> findByPlacedFalseAndOnHoldTrue();
     Flux<StudentPlacementStatus> findByPlacedFalse();
+    Mono<Long> countByPlacedTrue();
 }

@@ -16,6 +16,7 @@ public class ApplicantDto {
     private String notes;
     private Integer matchScore;
     private Instant appliedAt;
+    private Instant interviewDateTime;
 
     public static ApplicantDto from(Application a) {
         ApplicantDto dto = new ApplicantDto();
@@ -30,6 +31,7 @@ public class ApplicantDto {
         dto.notes = a.getNotes();
         dto.matchScore = a.getMatchScore();
         dto.appliedAt = a.getAppliedAt();
+        dto.interviewDateTime = a.getInterviewDateTime();
         return dto;
     }
 
@@ -44,4 +46,5 @@ public class ApplicantDto {
     public String getNotes() { return notes; }
     public Integer getMatchScore() { return matchScore; }
     public Instant getAppliedAt() { return appliedAt; }
+    public Instant getInterviewDateTime() { return interviewDateTime; }
 }

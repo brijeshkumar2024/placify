@@ -4,6 +4,9 @@ public class StatsResponse {
     private long totalApplications;
     private long offersMade;
     private long placedStudents;
+    private long shortlistedStudents;
+    private long interviewStudents;
+    private long rejectedStudents;
     private long activeDrives;
     private long upcomingDrives;
     private long totalDrives;
@@ -18,6 +21,12 @@ public class StatsResponse {
     public void setOffersMade(long v) { this.offersMade = v; }
     public long getPlacedStudents() { return placedStudents; }
     public void setPlacedStudents(long v) { this.placedStudents = v; }
+    public long getShortlistedStudents() { return shortlistedStudents; }
+    public void setShortlistedStudents(long v) { this.shortlistedStudents = v; }
+    public long getInterviewStudents() { return interviewStudents; }
+    public void setInterviewStudents(long v) { this.interviewStudents = v; }
+    public long getRejectedStudents() { return rejectedStudents; }
+    public void setRejectedStudents(long v) { this.rejectedStudents = v; }
     public long getActiveDrives() { return activeDrives; }
     public void setActiveDrives(long v) { this.activeDrives = v; }
     public long getUpcomingDrives() { return upcomingDrives; }

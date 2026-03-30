@@ -1,8 +1,25 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import {
-  Briefcase, Users, CheckCircle, TrendingUp, ArrowRight,
-  Star, Sparkles, Clock, Activity
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import {
+  ArrowRight,
+  Briefcase,
+  CalendarDays,
+  CheckCircle2,
+  Sparkles,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
 import { jobApi } from '../../services/api'
 import useAuthStore from '../../store/authStore'
@@ -13,260 +30,266 @@ const daysSince = (date) => {
   return diff <= 1 ? 'Today' : `${diff}d ago`
 }
 
+const motionUp = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0 },
+}
+
 export default function Dashboard() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState(null)
+
   const name = (user?.fullName || user?.email?.split('@')[0] || 'Recruiter').split(' ')[0]
 
   useEffect(() => {
     const recruiterId = user?.userId
-    if (!recruiterId) return
+
+    if (!recruiterId) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     Promise.all([
       jobApi.getRecruiterJobs(recruiterId, null),
-      jobApi.getRecruiterStats(recruiterId)
+      jobApi.getRecruiterStats(recruiterId),
     ])
       .then(([jobsRes, statsRes]) => {
-        setJobs(jobsRes.data.data || [])
-        setStats(statsRes.data.data)
+        setJobs(jobsRes.data?.data || [])
+        setStats(statsRes.data?.data || null)
       })
-      .catch(() => {})
+      .catch(() => {
+        setJobs([])
+        setStats(null)
+      })
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user?.userId])
 
-  const cards = [
-    { label: 'Jobs posted', value: stats?.totalJobs ?? jobs.length, icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50', accent: 'from-indigo-500/15 to-indigo-200/40', to: '/dashboard/my-jobs' },
-    { label: 'Total applicants', value: stats?.totalApplicants ?? jobs.reduce((a, j) => a + (j.applicantCount || 0), 0), icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', accent: 'from-emerald-400/15 to-emerald-100/35', to: '/dashboard/my-jobs' },
-    { label: 'Selection rate', value: `${(stats?.selectionRate ?? 0).toFixed(1)}%`, icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50', accent: 'from-purple-500/15 to-purple-100/35', to: '/dashboard' },
-    { label: 'Interviews', value: stats?.funnel?.interview ?? 0, icon: CheckCircle, color: 'text-amber-600', bg: 'bg-amber-50', accent: 'from-amber-400/20 to-amber-100/40', to: '/dashboard/my-jobs' },
-  ]
+  const totals = useMemo(() => {
+    const totalApplicants = stats?.totalApplicants ?? jobs.reduce((sum, job) => sum + (job.applicantCount || 0), 0)
+    const interviews = stats?.funnel?.interview ?? 0
+    const offers = stats?.funnel?.hired ?? stats?.funnel?.offer ?? 0
+    const activeJobs = jobs.filter((job) => job.status === 'ACTIVE').length
+    return { totalApplicants, interviews, offers, activeJobs }
+  }, [jobs, stats])
 
-  const recentActivity = useMemo(() => {
-    if (!jobs.length) return []
-    return jobs
-      .slice()
-      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-      .slice(0, 5)
-      .map(job => ({
-        title: job.title,
-        company: job.company,
-        count: job.applicantCount || 0,
-        time: daysSince(job.createdAt),
-      }))
-  }, [jobs])
+  const funnelData = useMemo(() => [
+    { stage: 'Applicants', value: totals.totalApplicants },
+    { stage: 'Shortlisted', value: stats?.funnel?.shortlisted ?? Math.round(totals.totalApplicants * 0.55) },
+    { stage: 'Interview', value: totals.interviews },
+    { stage: 'Offers', value: totals.offers },
+  ], [stats, totals])
+
+  const topRoles = useMemo(() => jobs
+    .slice()
+    .sort((first, second) => (second.applicantCount || 0) - (first.applicantCount || 0))
+    .slice(0, 5)
+    .map((job) => ({
+      name: job.title?.slice(0, 14) || 'Role',
+      applicants: job.applicantCount || 0,
+    })), [jobs])
+
+  const recentJobs = useMemo(() => jobs
+    .slice()
+    .sort((first, second) => new Date(second.createdAt || 0) - new Date(first.createdAt || 0))
+    .slice(0, 4), [jobs])
+
+  const topSkills = stats?.topSkills || []
 
   return (
-    <div className="p-8 space-y-7">
-
-      {/* Hero */}
-      <div className="glass-card lift overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-85" />
-        <div className="absolute inset-0 backdrop-blur-sm" />
-        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-7">
+    <div className="space-y-6">
+      <motion.section
+        initial="hidden"
+        animate="show"
+        variants={motionUp}
+        className="glass-card relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_28%)]" />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="p-3 rounded-2xl bg-white/80 text-indigo-600 shadow">
-              <Sparkles size={22} />
+            <div className="rounded-2xl bg-white/15 p-3 text-white">
+              <Sparkles size={20} />
             </div>
             <div>
-              <p className="text-sm text-white/80">Recruitment overview</p>
-              <h2 className="text-2xl md:text-3xl font-semibold text-white drop-shadow-sm">
-                Good morning, {name} 👋
-              </h2>
-              <p className="text-white/80 mt-1 text-sm max-w-xl">
-                Track funnel health, push new roles, and stay synced with applicants.
+              <p className="text-sm text-blue-100">Premium recruiting workspace</p>
+              <h2 className="mt-1 text-2xl font-semibold">Welcome back, {name} 👋</h2>
+              <p className="mt-2 max-w-2xl text-sm text-blue-100">
+                Monitor the hiring funnel, review high-intent applicants, and keep interviews moving with a polished SaaS-style control center.
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate('/dashboard/post-job')}
-              className="btn-premium shadow-xl"
-            >
+
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => navigate('/dashboard/post-job')} className="btn-premium border border-white/20 bg-white text-blue-700 shadow-none hover:text-blue-700">
               Post a job <ArrowRight size={16} />
             </button>
-            <button
-              onClick={() => navigate('/dashboard/my-jobs')}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-indigo-700 bg-white/85 border border-white/70 hover:border-white transition shadow"
-            >
-              View applicants
+            <button onClick={() => navigate('/dashboard/applicants')} className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20">
+              Review applicants
             </button>
           </div>
         </div>
-      </div>
+      </motion.section>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        {cards.map(({ label, value, icon: Icon, color, bg, accent, to }) => (
-          <div
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total Applicants', value: totals.totalApplicants, icon: Users, tone: 'bg-blue-50 text-blue-600' },
+          { label: 'Interviews Scheduled', value: totals.interviews, icon: CalendarDays, tone: 'bg-violet-50 text-violet-600' },
+          { label: 'Offers Made', value: totals.offers, icon: CheckCircle2, tone: 'bg-emerald-50 text-emerald-600' },
+          { label: 'Active Jobs', value: totals.activeJobs, icon: Briefcase, tone: 'bg-amber-50 text-amber-600' },
+        ].map(({ label, value, icon: Icon, tone }, index) => (
+          <motion.div
             key={label}
-            onClick={() => navigate(to)}
-            className="glass-card lift relative overflow-hidden px-4 py-5 cursor-pointer transition-all duration-300 hover:scale-[1.03] hover:shadow-xl active:scale-95 group"
+            initial="hidden"
+            animate="show"
+            transition={{ delay: index * 0.06 }}
+            variants={motionUp}
+            className="glass-card rounded-2xl p-5"
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${accent} opacity-95 group-hover:opacity-100 transition`} />
-            <div className="relative flex flex-col gap-2 w-full h-full">
-              <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center`}>
-                <Icon size={20} className={color} />
-              </div>
-              <p className="text-2xl font-semibold text-gray-900">{value}</p>
-              <p className="text-sm text-gray-600">{label}</p>
-              <span className="absolute top-4 right-4 text-gray-600 opacity-50 group-hover:opacity-100 transition-all">→</span>
+            <div className={`mb-3 inline-flex rounded-2xl p-2.5 ${tone}`}>
+              <Icon size={18} />
             </div>
-            <div className="absolute inset-0" />
-          </div>
+            <p className="text-2xl font-semibold text-slate-900">{value}</p>
+            <p className="mt-1 text-sm text-slate-500">{label}</p>
+          </motion.div>
         ))}
-      </div>
+      </section>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Recent jobs */}
-        <div className="col-span-2 glass-card lift p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Recent job postings</h3>
-            <button onClick={() => navigate('/dashboard/my-jobs')}
-              className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-              View all <ArrowRight size={14} />
+      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+        <motion.div initial="hidden" animate="show" variants={motionUp} className="glass-card p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Hiring funnel</h3>
+              <p className="text-sm text-slate-500">Built with Recharts to visualize the recruiter pipeline at a glance.</p>
+            </div>
+            <button onClick={() => navigate('/dashboard/analytics')} className="text-sm font-medium text-blue-600 hover:underline">
+              Open insights
             </button>
           </div>
+
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={funnelData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis dataKey="stage" stroke="#94A3B8" />
+                <YAxis allowDecimals={false} stroke="#94A3B8" />
+                <Tooltip cursor={{ fill: '#EFF6FF' }} />
+                <Bar dataKey="value" fill="#2563EB" radius={[10, 10, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        <motion.div initial="hidden" animate="show" variants={motionUp} className="glass-card p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Top performing roles</h3>
+            <p className="text-sm text-slate-500">See which openings are driving the most candidate interest.</p>
+          </div>
+
+          {topRoles.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+              Add a few jobs to unlock performance analytics.
+            </div>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={topRoles}>
+                  <defs>
+                    <linearGradient id="roleGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="name" stroke="#94A3B8" />
+                  <YAxis allowDecimals={false} stroke="#94A3B8" />
+                  <Tooltip cursor={{ stroke: '#C7D2FE', strokeWidth: 1 }} />
+                  <Area type="monotone" dataKey="applicants" stroke="#4F46E5" strokeWidth={3} fill="url(#roleGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </motion.div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <motion.div initial="hidden" animate="show" variants={motionUp} className="glass-card p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Recent hiring activity</h3>
+              <p className="text-sm text-slate-500">Your latest roles, applicant volume, and fresh pipeline movement.</p>
+            </div>
+            <button onClick={() => navigate('/dashboard/my-jobs')} className="text-sm font-medium text-blue-600 hover:underline">
+              View all
+            </button>
+          </div>
+
           {loading ? (
-            <p className="text-sm text-gray-400">Loading...</p>
-          ) : jobs.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-gray-400 text-sm mb-3">No jobs posted yet</p>
-              <button onClick={() => navigate('/dashboard/post-job')}
-                className="btn-premium text-sm px-4 py-2.5">
-                Post your first job
-              </button>
+            <div className="flex items-center gap-3 py-10 text-sm text-slate-500">
+              <div className="h-5 w-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+              Loading dashboard metrics…
+            </div>
+          ) : recentJobs.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+              No jobs posted yet. Publish your first role to populate this dashboard.
             </div>
           ) : (
             <div className="space-y-3">
-              {jobs.slice(0, 4).map(job => (
-                <div
+              {recentJobs.map((job) => (
+                <button
                   key={job.id}
-                  className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-white/80 transition-all cursor-pointer group shadow-sm"
                   onClick={() => navigate(`/dashboard/applicants/${job.id}`)}
+                  className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/40"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-semibold text-indigo-600 text-sm shadow-inner">
-                      {job.company?.[0]}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{job.title}</p>
-                      <p className="text-xs text-gray-500">{job.company} · {job.location || 'Remote'}</p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{job.title}</p>
+                    <p className="text-sm text-slate-500">{job.company} · {job.location || 'Remote'}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-emerald-600">{job.applicantCount || 0} applicants</p>
-                      <p className="text-[11px] text-gray-400 flex items-center gap-1">
-                        <Clock size={10} /> {daysSince(job.createdAt)}
-                      </p>
-                    </div>
-                    <span className="text-[11px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-semibold">
-                      {job.status || 'ACTIVE'}
-                    </span>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-blue-600">{job.applicantCount || 0} applicants</p>
+                    <p className="text-xs text-slate-400">{daysSince(job.createdAt)}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
 
-        {/* Quick actions + activity */}
-        <div className="space-y-4">
-          <div className="glass-card p-5">
-            <h3 className="font-semibold text-gray-900 mb-3">Quick actions</h3>
-            {[
-              { label: 'Post a new job', desc: 'Add a fresh opening in seconds', action: () => navigate('/dashboard/post-job'), color: 'from-indigo-500 to-purple-500' },
-              { label: 'View all applicants', desc: 'See candidate pipelines', action: () => navigate('/dashboard/my-jobs'), color: 'from-emerald-500 to-teal-400' },
-            ].map(({ label, desc, action, color }) => (
-              <button
-                key={label}
-                onClick={action}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/60 bg-white/70 hover:border-indigo-100 hover:bg-white transition-all text-left lift"
-              >
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} text-white flex items-center justify-center`}>
-                  <ArrowRight size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{label}</p>
-                  <p className="text-xs text-gray-500">{desc}</p>
-                </div>
-              </button>
-            ))}
+        <motion.div initial="hidden" animate="show" variants={motionUp} className="glass-card p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <TrendingUp size={18} className="text-blue-600" />
+            <h3 className="text-lg font-semibold text-slate-900">Top skills in demand</h3>
           </div>
 
-          {/* Activity */}
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Activity size={16} className="text-indigo-600" />
-              <h3 className="font-semibold text-gray-900">Latest activity</h3>
+          {topSkills.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+              Skill intelligence appears after candidates begin applying.
             </div>
-            {!recentActivity.length ? (
-              <p className="text-sm text-gray-500">Activity shows up once you post roles.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentActivity.map((a, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <div className="w-2 h-2 mt-2 rounded-full bg-indigo-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {a.title} <span className="text-gray-500 font-normal">· {a.company}</span>
-                      </p>
-                      <p className="text-xs text-gray-500">{a.count} applicants · {a.time}</p>
+          ) : (
+            <div className="space-y-4">
+              {topSkills.map((skill, index) => {
+                const max = Math.max(...topSkills.map((entry) => entry.count || 0), 1)
+                return (
+                  <div key={skill.skill}>
+                    <div className="mb-1.5 flex items-center justify-between text-sm">
+                      <span className="font-medium text-slate-800">{index + 1}. {skill.skill}</span>
+                      <span className="text-slate-500">{skill.count} applicants</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-500"
+                        style={{ width: `${((skill.count || 0) / max) * 100}%` }}
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Skills */}
-      <div className="glass-card lift p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Star size={18} className="text-amber-500" />
-            <h3 className="font-semibold text-gray-900">Top skills among applicants</h3>
-          </div>
-          <span className="text-xs text-gray-500">Live from applications</span>
-        </div>
-        {!stats?.topSkills?.length ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-inner mb-3">
-              <Star size={20} className="text-gray-300" />
+                )
+              })}
             </div>
-            <p className="text-sm font-medium text-gray-500">No skill data yet</p>
-            <p className="text-xs text-gray-400 mt-1">Skills appear after applicants submit profiles.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {(() => {
-              const max = Math.max(...stats.topSkills.map(s => s.count))
-              return stats.topSkills.map((s, i) => (
-                <div key={s.skill}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-400 w-4">{i + 1}</span>
-                      <Star size={14} className="text-amber-400" />
-                      <span className="text-sm font-medium text-gray-800">{s.skill}</span>
-                    </div>
-                    <span className="text-xs font-semibold text-gray-500">{s.count} applicant{s.count !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-700"
-                      style={{ width: `${(s.count / max) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            })()}
-          </div>
-        )}
-      </div>
+          )}
+        </motion.div>
+      </section>
     </div>
   )
 }
