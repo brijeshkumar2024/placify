@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Clock, MapPin, IndianRupee, Bookmark } from 'lucide-react'
+import { Search, Clock, MapPin, IndianRupee, Bookmark, CheckCircle } from 'lucide-react'
 import { jobApi } from '../../services/api'
 
 const fitColor = (fit) => {
@@ -34,14 +34,17 @@ export default function JobFeed() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [saved, setSaved] = useState([])
-  const [applied, setApplied] = useState([])
   const [applying, setApplying] = useState(false)
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     jobApi.getAllJobs()
       .then(res => {
-        const data = res.data.data || []
+        const data = (res.data.data || []).map(j => ({
+          ...j,
+          // Backend now sends `isApplied`; keep backward compatibility if it arrives as `applied`.
+          isApplied: typeof j.isApplied === 'boolean' ? j.isApplied : !!j.applied
+        }))
         setJobs(data)
         if (data.length > 0) setSelected(data[0])
       })
@@ -65,17 +68,22 @@ export default function JobFeed() {
   }
 
   const handleApply = async (id) => {
-    if (applied.includes(id) || applying) return
+    const job = jobs.find(j => j.id === id)
+    if (job?.isApplied || applying) return
     setApplying(true)
     try {
       await jobApi.applyToJob(id)
-      setApplied(prev => [...prev, id])
       setJobs(prev => prev.map(j => j.id === id
-        ? { ...j, applicantCount: (j.applicantCount || 0) + 1 }
+        ? { ...j, isApplied: true, applicantCount: (j.applicantCount || 0) + 1 }
         : j))
+      setSelected(prev => prev?.id === id
+        ? { ...prev, isApplied: true, applicantCount: (prev.applicantCount || 0) + 1 }
+        : prev)
     } catch (err) {
       const msg = err.response?.data?.message
-      if (msg?.includes('already applied')) setApplied(prev => [...prev, id])
+      if (msg?.toLowerCase().includes('already applied')) {
+        setJobs(prev => prev.map(j => j.id === id ? { ...j, isApplied: true } : j))
+      }
     } finally {
       setApplying(false)
     }
@@ -101,6 +109,7 @@ export default function JobFeed() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Left panel */}
       <div className="w-96 border-r border-gray-100 flex flex-col bg-white">
         <div className="p-4 border-b border-gray-100">
           <div className="relative mb-3">
@@ -156,8 +165,10 @@ export default function JobFeed() {
                   </span>
                   <span className="text-xs text-gray-400">{job.ctc}</span>
                 </div>
-                {applied.includes(job.id) && (
-                  <p className="text-xs text-green-600 font-medium mt-1.5">✓ Applied</p>
+                {job.isApplied && (
+                  <p className="text-xs text-green-600 font-medium mt-1.5 flex items-center gap-1">
+                    <CheckCircle size={11} /> Applied
+                  </p>
                 )}
               </div>
             )
@@ -168,6 +179,7 @@ export default function JobFeed() {
         </div>
       </div>
 
+      {/* Right detail panel */}
       {selected && (() => {
         const fit = calcFit(selected)
         return (
@@ -202,13 +214,17 @@ export default function JobFeed() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => handleApply(selected.id)}
-                    disabled={applied.includes(selected.id) || applying}
+                    disabled={selected.isApplied || applying}
                     className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
-                      applied.includes(selected.id)
+                      selected.isApplied
                         ? 'bg-green-50 text-green-700 border border-green-200 cursor-default'
+                        : applying
+                        ? 'bg-blue-400 text-white cursor-wait'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}>
-                    {applied.includes(selected.id) ? '✓ Applied successfully' : applying ? 'Applying...' : 'Apply now'}
+                    {selected.isApplied
+                      ? '✓ Applied'
+                      : applying ? 'Applying...' : 'Apply now'}
                   </button>
                   <button onClick={(e) => toggleSave(selected.id, e)}
                     className="px-4 py-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all">

@@ -1,0 +1,27 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: interview-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/campus_placement}
+      database: campus_placement
+      auto-index-creation: true
+  config:
+    import: optional:file:./interview.env[.properties]
+
+jwt:
+  secret: ${JWT_SECRET:4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==}
+
+nvidia:
+  api:
+    base-url: https://integrate.api.nvidia.com/v1
+    model: openai/gpt-oss-120b
+    key: ${NVIDIA_API_KEY:placeholder}
+
+logging:
+  level:
+    com.placement: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG

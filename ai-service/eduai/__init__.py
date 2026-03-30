@@ -1,0 +1,3 @@
+"""
+EduAI quiz generation package.
+"""

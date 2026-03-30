@@ -6,12 +6,12 @@ spring:
     name: user-service
   data:
     mongodb:
-      uri: mongodb://localhost:27017/campus_placement
+      uri: ${MONGODB_URI:mongodb://localhost:27017/campus_placement}
       database: campus_placement
       auto-index-creation: true
 
 jwt:
-  secret: 4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==
+  secret: ${JWT_SECRET:4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:placeholder}

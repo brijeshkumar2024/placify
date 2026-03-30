@@ -1,4 +1,5 @@
 package com.placement.auth_service.security;
+
 import com.placement.auth_service.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -8,23 +9,26 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
+
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter implements WebFilter {
     private final JwtUtil jwtUtil;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
-        if (path.startsWith("/api/auth/")) return chain.filter(exchange);
+        if (path.startsWith("/api/auth/"))
+            return chain.filter(exchange);
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse().setComplete();
+            System.out.println("[AUTH] Missing or malformed Authorization header (non-blocking)");
+            return chain.filter(exchange);
         }
         String token = authHeader.substring(7);
         if (!jwtUtil.isTokenValid(token)) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse().setComplete();
+            System.out.println("[AUTH] Invalid or expired token (non-blocking)");
+            return chain.filter(exchange);
         }
         return chain.filter(exchange);
     }

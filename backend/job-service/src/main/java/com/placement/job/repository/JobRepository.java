@@ -7,4 +7,6 @@ import reactor.core.publisher.Flux;
 public interface JobRepository extends ReactiveMongoRepository<Job, String> {
     Flux<Job> findByStatus(Job.JobStatus status);
     Flux<Job> findByStatusAndMinCgpaLessThanEqual(Job.JobStatus status, double cgpa);
+    Flux<Job> findByPostedBy(String recruiterId);
+    Flux<Job> findByPostedByAndStatus(String recruiterId, Job.JobStatus status);
 }

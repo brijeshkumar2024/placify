@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Clock, Users, MapPin, ChevronRight } from 'lucide-react'
 import { jobApi } from '../../services/api'
+import useAuthStore from '../../store/authStore'
 
 const daysLeft = (deadline) => {
   if (!deadline) return 'No deadline'
@@ -11,15 +12,20 @@ const daysLeft = (deadline) => {
 
 export default function MyJobs() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState('ALL')
 
   useEffect(() => {
-    jobApi.getAllJobs()
+    const recruiterId = user?.userId
+    if (!recruiterId) return
+    setLoading(true)
+    jobApi.getRecruiterJobs(recruiterId, status === 'ALL' ? null : status)
       .then(res => setJobs(res.data.data || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [user, status])
 
   if (loading) return (
     <div className="p-8 flex items-center justify-center">
@@ -29,7 +35,7 @@ export default function MyJobs() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">My jobs</h2>
           <p className="text-gray-500 text-sm mt-1">{jobs.length} job{jobs.length !== 1 ? 's' : ''} posted</p>
@@ -38,6 +44,15 @@ export default function MyJobs() {
           className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-all">
           + Post new job
         </button>
+      </div>
+
+      <div className="flex gap-2 mb-6">
+        {['ALL', 'ACTIVE', 'CLOSED', 'DRAFT'].map(s => (
+          <button key={s} onClick={() => setStatus(s)}
+            className={`px-3 py-1.5 text-xs rounded-full border transition-all ${status === s ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            {s}
+          </button>
+        ))}
       </div>
 
       {jobs.length === 0 ? (

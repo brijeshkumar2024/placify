@@ -1,5 +1,6 @@
 package com.placement.job.service;
 import com.placement.job.dto.request.CreateJobRequest;
+import com.placement.job.dto.response.JobDto;
 import com.placement.job.exception.AppException;
 import com.placement.job.model.Application;
 import com.placement.job.model.Job;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import java.time.Instant;
 
 @Service
 public class JobService {
@@ -22,8 +24,13 @@ public class JobService {
         this.applicationRepository = applicationRepository;
         this.jwtUtil = jwtUtil;
     }
-    public Flux<Job> getAllActiveJobs() {
-        return jobRepository.findByStatus(Job.JobStatus.ACTIVE);
+
+    public Flux<JobDto> getAllActiveJobs(String token) {
+        String studentId = jwtUtil.extractUserId(token.replace("Bearer ", ""));
+        return jobRepository.findByStatus(Job.JobStatus.ACTIVE)
+                .flatMap(job -> applicationRepository
+                        .existsByJobIdAndStudentId(job.getId(), studentId)
+                        .map(applied -> JobDto.from(job, applied)));
     }
     public Mono<Job> getJobById(String jobId) {
         return jobRepository.findById(jobId)
@@ -50,7 +57,10 @@ public class JobService {
         return jobRepository.save(job);
     }
     public Mono<Application> applyToJob(String token, String jobId) {
-        String studentId = jwtUtil.extractUserId(token.replace("Bearer ", ""));
+        String clean = token.replace("Bearer ", "");
+        String studentId = jwtUtil.extractUserId(clean);
+        String email = jwtUtil.extractEmail(clean);
+        String fullName = jwtUtil.extractFullName(clean);
         return applicationRepository.existsByJobIdAndStudentId(jobId, studentId)
                 .flatMap(exists -> {
                     if (exists) return Mono.error(new AppException(
@@ -61,10 +71,14 @@ public class JobService {
                                 Application application = new Application();
                                 application.setJobId(jobId);
                                 application.setStudentId(studentId);
+                                application.setEmail(email);
+                                application.setName(fullName != null && !fullName.isBlank() ? fullName : (email != null ? email.split("@")[0] : "Candidate"));
                                 application.setCompany(job.getCompany());
                                 application.setRole(job.getTitle());
                                 application.setStatus(Application.ApplicationStatus.APPLIED);
                                 application.setFitScore(75);
+                                application.setAppliedAt(Instant.now());
+                                application.setUpdatedAt(Instant.now());
                                 return applicationRepository.save(application)
                                         .flatMap(saved -> {
                                             job.setApplicantCount(job.getApplicantCount() + 1);

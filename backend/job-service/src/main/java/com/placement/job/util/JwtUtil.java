@@ -19,6 +19,12 @@ public class JwtUtil {
     public String extractUserId(String token) {
         return extractAllClaims(token).getSubject();
     }
+    public String extractEmail(String token) {
+        return extractAllClaims(token).get("email", String.class);
+    }
+    public String extractFullName(String token) {
+        return extractAllClaims(token).get("fullName", String.class);
+    }
     public String extractRole(String token) {
         return extractAllClaims(token).get("role", String.class);
     }

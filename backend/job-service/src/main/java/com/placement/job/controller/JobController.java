@@ -19,8 +19,9 @@ public class JobController {
         return Mono.just(ResponseEntity.ok(ApiResponse.success("Job service is running.", null)));
     }
     @GetMapping
-    public Mono<ResponseEntity<ApiResponse<Object>>> getAllJobs() {
-        return jobService.getAllActiveJobs()
+    public Mono<ResponseEntity<ApiResponse<Object>>> getAllJobs(
+            @RequestHeader("Authorization") String token) {
+        return jobService.getAllActiveJobs(token)
                 .collectList()
                 .map(jobs -> ResponseEntity.ok(ApiResponse.success("Jobs fetched.", (Object) jobs)));
     }

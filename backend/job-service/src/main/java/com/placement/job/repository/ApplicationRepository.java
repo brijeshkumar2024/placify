@@ -9,4 +9,6 @@ public interface ApplicationRepository extends ReactiveMongoRepository<Applicati
     Flux<Application> findByStudentId(String studentId);
     Flux<Application> findByJobId(String jobId);
     Mono<Boolean> existsByJobIdAndStudentId(String jobId, String studentId);
+    Mono<Long> countByJobId(String jobId);
+    Mono<Long> countByJobIdAndStatus(String jobId, Application.ApplicationStatus status);
 }

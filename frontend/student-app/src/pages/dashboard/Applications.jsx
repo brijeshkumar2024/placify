@@ -1,31 +1,21 @@
-import { useState } from 'react'
-import { Clock, ChevronRight, X, CheckCircle, AlertCircle, Circle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Clock, ChevronRight, X, CheckCircle, AlertCircle, Circle, AlertTriangle } from 'lucide-react'
+import { jobApi } from '../../services/api'
 
-const initialApplications = {
-  applied: [
-    { id: 1, company: 'Google', role: 'Software Engineer', ctc: '45 LPA', appliedOn: '18 Mar 2026', fit: 92 },
-    { id: 2, company: 'Razorpay', role: 'Backend Engineer', ctc: '22 LPA', appliedOn: '17 Mar 2026', fit: 74 },
-  ],
-  shortlisted: [
-    { id: 3, company: 'Microsoft', role: 'SDE-1', ctc: '40 LPA', appliedOn: '15 Mar 2026', fit: 88, round: 'Aptitude test on 22 Mar' },
-  ],
-  interview: [
-    { id: 4, company: 'Infosys', role: 'Systems Engineer', ctc: '8 LPA', appliedOn: '10 Mar 2026', fit: 95, round: 'HR round on 23 Mar' },
-  ],
-  offer: [
-    { id: 5, company: 'TCS', role: 'Software Engineer', ctc: '7 LPA', appliedOn: '1 Mar 2026', fit: 97, ctcFinal: '7 LPA' },
-  ],
-  rejected: [
-    { id: 6, company: 'Flipkart', role: 'SDE-1', ctc: '28 LPA', appliedOn: '5 Mar 2026', fit: 78 },
-  ],
+const emptyApplications = {
+  applied: [],
+  shortlisted: [],
+  interview: [],
+  offer: [],
+  rejected: [],
 }
 
 const columns = [
-  { key: 'applied',     label: 'Applied',     color: 'bg-blue-500',   light: 'bg-blue-50 text-blue-700',   count: true },
-  { key: 'shortlisted', label: 'Shortlisted', color: 'bg-amber-500',  light: 'bg-amber-50 text-amber-700', count: true },
-  { key: 'interview',   label: 'Interview',   color: 'bg-purple-500', light: 'bg-purple-50 text-purple-700', count: true },
-  { key: 'offer',       label: 'Offer',       color: 'bg-green-500',  light: 'bg-green-50 text-green-700', count: true },
-  { key: 'rejected',    label: 'Rejected',    color: 'bg-red-400',    light: 'bg-red-50 text-red-600',     count: true },
+  { key: 'applied',     label: 'Applied',     color: 'bg-blue-500',   light: 'bg-blue-50 text-blue-700' },
+  { key: 'shortlisted', label: 'Shortlisted', color: 'bg-amber-500',  light: 'bg-amber-50 text-amber-700' },
+  { key: 'interview',   label: 'Interview',   color: 'bg-purple-500', light: 'bg-purple-50 text-purple-700' },
+  { key: 'offer',       label: 'Offer',       color: 'bg-green-500',  light: 'bg-green-50 text-green-700' },
+  { key: 'rejected',    label: 'Rejected',    color: 'bg-red-400',    light: 'bg-red-50 text-red-600' },
 ]
 
 const statusIcon = {
@@ -36,13 +26,77 @@ const statusIcon = {
   rejected:    <X size={14} className="text-red-400" />,
 }
 
+const statusMap = {
+  APPLIED: 'applied',
+  SHORTLISTED: 'shortlisted',
+  INTERVIEW: 'interview',
+  OFFER: 'offer',
+  REJECTED: 'rejected',
+}
+
+const formatDate = (iso) => {
+  if (!iso) return 'N/A'
+  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 export default function Applications() {
-  const [apps, setApps] = useState(initialApplications)
+  const [apps, setApps] = useState(emptyApplications)
   const [selected, setSelected] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    jobApi.getMyApplications()
+      .then(res => {
+        console.log('[Applications] API response:', res.data)
+        const data = res.data?.data || []
+        const grouped = { ...emptyApplications }
+        data.forEach(item => {
+          const key = statusMap[item.status] || 'applied'
+          grouped[key] = [
+            ...grouped[key],
+            {
+              id: item.id,
+              jobId: item.jobId,
+              company: item.company || 'Unknown',
+              role: item.role || 'Unknown Role',
+              appliedOn: formatDate(item.appliedAt),
+              fit: item.fitScore || 0,
+              status: item.status,
+              ctc: item.ctc || '—',
+            }
+          ]
+        })
+        setApps(grouped)
+      })
+      .catch(err => {
+        console.error('[Applications] Error:', err)
+        setError(err.response?.data?.message || 'Could not load applications')
+      })
+      .finally(() => setLoading(false))
+  }, [])
 
   const total = Object.values(apps).flat().length
   const offers = apps.offer.length
   const interviews = apps.interview.length
+
+  if (loading) return (
+    <div className="p-8">
+      <div className="flex items-center gap-3 text-sm text-gray-500">
+        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        Loading your applications…
+      </div>
+    </div>
+  )
+
+  if (error) return (
+    <div className="p-8">
+      <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+        <AlertTriangle size={16} />
+        <span>{error}</span>
+      </div>
+    </div>
+  )
 
   return (
     <div className="p-8 h-screen overflow-hidden flex flex-col">
@@ -56,90 +110,90 @@ export default function Applications() {
           </p>
         </div>
         <div className="flex gap-3">
-          <div className="bg-white border border-gray-100 rounded-xl px-4 py-2 text-center">
-            <p className="text-xl font-semibold text-gray-900">{total}</p>
-            <p className="text-xs text-gray-500">Applied</p>
-          </div>
-          <div className="bg-white border border-gray-100 rounded-xl px-4 py-2 text-center">
-            <p className="text-xl font-semibold text-purple-600">{interviews}</p>
-            <p className="text-xs text-gray-500">Interviews</p>
-          </div>
-          <div className="bg-white border border-gray-100 rounded-xl px-4 py-2 text-center">
-            <p className="text-xl font-semibold text-green-600">{offers}</p>
-            <p className="text-xs text-gray-500">Offers</p>
-          </div>
+          {[
+            { value: total, label: 'Applied', color: 'text-gray-900' },
+            { value: interviews, label: 'Interviews', color: 'text-purple-600' },
+            { value: offers, label: 'Offers', color: 'text-green-600' },
+          ].map(({ value, label, color }) => (
+            <div key={label} className="bg-white border border-gray-100 rounded-xl px-4 py-2 text-center">
+              <p className={`text-xl font-semibold ${color}`}>{value}</p>
+              <p className="text-xs text-gray-500">{label}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Kanban board */}
-      <div className="flex gap-4 flex-1 overflow-x-auto pb-4">
-        {columns.map(col => (
-          <div key={col.key} className="w-72 flex-shrink-0 flex flex-col">
-
-            {/* Column header */}
-            <div className="flex items-center justify-between mb-3 px-1">
-              <div className="flex items-center gap-2">
-                <div className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
-                <span className="text-sm font-semibold text-gray-900">{col.label}</span>
-              </div>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${col.light}`}>
-                {apps[col.key].length}
-              </span>
+      {total === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Circle size={28} className="text-gray-400" />
             </div>
-
-            {/* Cards */}
-            <div className="flex-1 space-y-3 overflow-y-auto">
-              {apps[col.key].map(app => (
-                <div
-                  key={app.id}
-                  onClick={() => setSelected({ ...app, status: col.key })}
-                  className="bg-white rounded-2xl border border-gray-100 p-4 cursor-pointer hover:shadow-sm hover:border-gray-200 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center font-semibold text-gray-700 text-sm">
-                        {app.company[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{app.company}</p>
-                        <p className="text-xs text-gray-500">{app.role}</p>
-                      </div>
-                    </div>
-                    <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <Clock size={10} /> {app.appliedOn}
-                    </span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${col.light}`}>
-                      {app.fit}% fit
-                    </span>
-                  </div>
-
-                  {app.round && (
-                    <div className="mt-2.5 bg-amber-50 rounded-lg px-2.5 py-1.5">
-                      <p className="text-xs text-amber-700 font-medium">{app.round}</p>
-                    </div>
-                  )}
-
-                  {col.key === 'offer' && (
-                    <div className="mt-2.5 bg-green-50 rounded-lg px-2.5 py-1.5">
-                      <p className="text-xs text-green-700 font-medium">Offer: {app.ctcFinal}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {apps[col.key].length === 0 && (
-                <div className="border-2 border-dashed border-gray-100 rounded-2xl p-6 text-center">
-                  <p className="text-xs text-gray-400">No applications here</p>
-                </div>
-              )}
-            </div>
+            <p className="text-lg font-semibold text-gray-900 mb-1">No applications yet</p>
+            <p className="text-sm text-gray-500">Start applying to jobs from the Job Feed.</p>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        /* Kanban board */
+        <div className="flex gap-4 flex-1 overflow-x-auto pb-4">
+          {columns.map(col => (
+            <div key={col.key} className="w-72 flex-shrink-0 flex flex-col">
+
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
+                  <span className="text-sm font-semibold text-gray-900">{col.label}</span>
+                </div>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${col.light}`}>
+                  {apps[col.key].length}
+                </span>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto">
+                {apps[col.key].map(app => (
+                  <div
+                    key={app.id}
+                    onClick={() => setSelected({ ...app, statusKey: col.key })}
+                    className="bg-white rounded-2xl border border-gray-100 p-4 cursor-pointer hover:shadow-sm hover:border-gray-200 transition-all group"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center font-semibold text-gray-700 text-sm">
+                          {app.company[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{app.company}</p>
+                          <p className="text-xs text-gray-500">{app.role}</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Clock size={10} /> {app.appliedOn}
+                      </span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${col.light}`}>
+                        {app.fit}% fit
+                      </span>
+                    </div>
+                    {col.key === 'offer' && (
+                      <div className="mt-2.5 bg-green-50 rounded-lg px-2.5 py-1.5">
+                        <p className="text-xs text-green-700 font-medium">Offer received 🎉</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {apps[col.key].length === 0 && (
+                  <div className="border-2 border-dashed border-gray-100 rounded-2xl p-6 text-center">
+                    <p className="text-xs text-gray-400">No applications here</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Detail modal */}
       {selected && (
@@ -168,8 +222,7 @@ export default function Applications() {
 
             <div className="space-y-3 mb-5">
               {[
-                { label: 'Status', value: <span className="flex items-center gap-1.5">{statusIcon[selected.status]} <span className="capitalize">{selected.status}</span></span> },
-                { label: 'CTC', value: selected.ctc },
+                { label: 'Status', value: <span className="flex items-center gap-1.5">{statusIcon[selected.statusKey]} <span className="capitalize">{selected.statusKey}</span></span> },
                 { label: 'Applied on', value: selected.appliedOn },
                 { label: 'Fit score', value: `${selected.fit}%` },
               ].map(({ label, value }) => (
@@ -180,13 +233,7 @@ export default function Applications() {
               ))}
             </div>
 
-            {selected.round && (
-              <div className="bg-amber-50 rounded-xl p-3 mb-4">
-                <p className="text-sm text-amber-700 font-medium">Upcoming: {selected.round}</p>
-              </div>
-            )}
-
-            {selected.status === 'offer' && (
+            {selected.statusKey === 'offer' && (
               <div className="flex gap-2">
                 <button className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-all">
                   Accept offer
@@ -197,7 +244,7 @@ export default function Applications() {
               </div>
             )}
 
-            {selected.status === 'interview' && (
+            {selected.statusKey === 'interview' && (
               <button className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-all">
                 Prepare for interview
               </button>

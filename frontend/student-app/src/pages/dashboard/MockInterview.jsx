@@ -1,281 +1,502 @@
-import { useState, useRef, useEffect } from 'react'
-import { Mic, MicOff, Send, RotateCcw, ChevronRight, Award, Clock } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronRight, Clock, History, Play, RotateCcw, Send, Zap, AlertTriangle, Loader2 } from 'lucide-react'
+import { interviewApi } from '../../services/api'
 
-const domains = [
-  { id: 'dsa', label: 'Data Structures & Algorithms', icon: '🧮', desc: 'Arrays, trees, graphs, DP' },
-  { id: 'system', label: 'System Design', icon: '🏗️', desc: 'Scalability, databases, APIs' },
-  { id: 'hr', label: 'HR & Behavioural', icon: '🤝', desc: 'Situational, cultural fit' },
-  { id: 'core', label: 'Core CS', icon: '💻', desc: 'OS, DBMS, Networks, OOP' },
+// Domain IDs must match backend enum: DSA | SYSTEM_DESIGN | HR | CORE_CS
+const DOMAINS = [
+  { id: 'DSA', label: 'Data Structures & Algorithms', icon: '🧮', desc: 'Arrays, trees, graphs, DP', color: 'from-blue-500 to-blue-600' },
+  { id: 'SYSTEM_DESIGN', label: 'System Design', icon: '🏗️', desc: 'Scalability, databases, APIs', color: 'from-purple-500 to-purple-600' },
+  { id: 'HR', label: 'HR & Behavioural', icon: '🤝', desc: 'Situational, cultural fit', color: 'from-green-500 to-green-600' },
+  { id: 'CORE_CS', label: 'Core CS', icon: '💻', desc: 'OS, DBMS, Networks, OOP', color: 'from-amber-500 to-amber-600' },
 ]
 
-const questions = {
-  dsa: [
-    { q: 'Explain the difference between a stack and a queue. When would you use each?', hint: 'Think about LIFO vs FIFO and real-world examples.' },
-    { q: 'What is the time complexity of binary search and why?', hint: 'Consider how many elements are eliminated per step.' },
-    { q: 'How would you detect a cycle in a linked list?', hint: 'Think about Floyd\'s tortoise and hare algorithm.' },
-  ],
-  system: [
-    { q: 'How would you design a URL shortener like bit.ly?', hint: 'Consider hashing, database design, and scalability.' },
-    { q: 'Explain the CAP theorem in distributed systems.', hint: 'Consistency, Availability, Partition tolerance — pick two.' },
-    { q: 'How would you design WhatsApp\'s messaging system?', hint: 'Think about real-time messaging, storage, and delivery guarantees.' },
-  ],
-  hr: [
-    { q: 'Tell me about yourself and why you want to join this company.', hint: 'Structure: background → skills → why this company.' },
-    { q: 'Describe a time you faced a difficult challenge and how you overcame it.', hint: 'Use STAR method: Situation, Task, Action, Result.' },
-    { q: 'Where do you see yourself in 5 years?', hint: 'Show ambition but stay realistic and company-aligned.' },
-  ],
-  core: [
-    { q: 'What is a deadlock and how can it be prevented?', hint: 'Four conditions: mutual exclusion, hold and wait, no preemption, circular wait.' },
-    { q: 'Explain the difference between SQL and NoSQL databases.', hint: 'Think about structure, scalability, and use cases.' },
-    { q: 'What happens when you type a URL in the browser and press Enter?', hint: 'DNS → TCP → HTTP → render — cover each step.' },
-  ],
+const DIFFICULTY_COLORS = {
+  EASY: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', active: 'bg-green-600 text-white' },
+  MEDIUM: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', active: 'bg-amber-500 text-white' },
+  HARD: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', active: 'bg-red-600 text-white' },
 }
 
-const feedback = [
-  { label: 'Technical accuracy', score: 78, color: 'bg-blue-600' },
-  { label: 'Communication clarity', score: 85, color: 'bg-green-500' },
-  { label: 'Confidence', score: 72, color: 'bg-purple-500' },
-  { label: 'Completeness', score: 68, color: 'bg-amber-500' },
-]
+const TIMER_BY_DIFFICULTY = { EASY: 180, MEDIUM: 120, HARD: 90 }
 
 export default function MockInterview() {
   const [phase, setPhase] = useState('select') // select | interview | feedback
-  const [domain, setDomain] = useState(null)
-  const [qIndex, setQIndex] = useState(0)
+  const [difficulty, setDifficulty] = useState('MEDIUM')
+  const [domainId, setDomainId] = useState(null)
+  const [sessionId, setSessionId] = useState(null)
+  const [question, setQuestion] = useState(null)
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [totalQuestions, setTotalQuestions] = useState(0)
+  const [isLastQuestion, setIsLastQuestion] = useState(false)
   const [answer, setAnswer] = useState('')
-  const [answers, setAnswers] = useState([])
-  const [recording, setRecording] = useState(false)
-  const [timer, setTimer] = useState(120)
-  const [paused, setPaused] = useState(true)
+  const [evaluation, setEvaluation] = useState(null)
+  const [history, setHistory] = useState([])
+  const [finalReport, setFinalReport] = useState(null)
+  const [startingId, setStartingId] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [timer, setTimer] = useState(TIMER_BY_DIFFICULTY[difficulty])
   const timerRef = useRef(null)
-  const textareaRef = useRef(null)
 
-  const currentQ = domain ? questions[domain.id][qIndex] : null
-  const totalQ = domain ? questions[domain.id].length : 0
+  const formatTimestamp = (ts) => ts
+    ? new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Just now'
 
+  // Load history from backend
   useEffect(() => {
-    if (!paused && timer > 0) {
-      timerRef.current = setInterval(() => setTimer(t => t - 1), 1000)
-    } else {
+    interviewApi.getHistory()
+      .then(res => setHistory(res.data?.data || []))
+      .catch(() => setHistory([]))
+  }, [])
+
+  // Countdown timer
+  useEffect(() => {
+    if (phase !== 'interview') {
       clearInterval(timerRef.current)
+      return
     }
+    clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      setTimer((t) => {
+        if (t <= 1) {
+          clearInterval(timerRef.current)
+          handleSubmit(true)
+          return 0
+        }
+        return t - 1
+      })
+    }, 1000)
     return () => clearInterval(timerRef.current)
-  }, [paused, timer])
-
-  const startInterview = (d) => {
-    setDomain(d)
-    setPhase('interview')
-    setQIndex(0)
-    setAnswer('')
-    setAnswers([])
-    setTimer(120)
-    setPaused(false)
-  }
-
-  const submitAnswer = () => {
-    if (!answer.trim()) return
-    setAnswers(prev => [...prev, { q: currentQ.q, a: answer }])
-    if (qIndex + 1 < totalQ) {
-      setQIndex(i => i + 1)
-      setAnswer('')
-      setTimer(120)
-      setPaused(false)
-    } else {
-      setPaused(true)
-      setPhase('feedback')
-    }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, questionIndex, submitting])
 
   const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  const avgScore = Math.round(feedback.reduce((a, b) => a + b.score, 0) / feedback.length)
+  // Derived stats from history
+  const categoryProgress = useMemo(() => {
+    return DOMAINS.map(d => {
+      const sessions = history.filter(h => h.domain === d.id)
+      const attempts = sessions.length
+      const best = attempts
+        ? Math.max(...sessions.map(s => s.finalReport?.overallScore || 0))
+        : 0
+      return { ...d, attempts, best }
+    })
+  }, [history])
 
-  if (phase === 'select') return (
-    <div className="p-8 max-w-3xl">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-gray-900">Mock interview</h2>
-        <p className="text-gray-500 text-sm mt-1">Choose a domain to start your AI-powered interview session</p>
-      </div>
+  const lastSession = history[0]
 
-      <div className="grid grid-cols-2 gap-4">
-        {domains.map(d => (
+  const handleStart = (domain) => {
+    setStartingId(domain.id)
+    setError('')
+    interviewApi.start(domain.id, difficulty, 5)
+      .then(res => {
+        const data = res.data?.data
+        setSessionId(data.sessionId)
+        setQuestion(data.question)
+        setQuestionIndex(data.questionIndex)
+        setTotalQuestions(data.totalQuestions)
+        setIsLastQuestion(data.isLastQuestion)
+        setDomainId(domain.id)
+        setPhase('interview')
+        setAnswer('')
+        setEvaluation(null)
+        setTimer(TIMER_BY_DIFFICULTY[difficulty])
+      })
+      .catch(() => setError('Could not start interview. Please try again.'))
+      .finally(() => setStartingId(null))
+  }
+
+  const handleSubmit = (auto = false) => {
+    if (!sessionId) return
+    if (submitting) return
+    setSubmitting(true)
+    setError('')
+    const payloadAnswer = (answer || '').trim() || (auto ? '[Auto-submitted: no answer]' : '')
+    interviewApi.submitAnswer(sessionId, payloadAnswer)
+      .then(res => {
+        const data = res.data?.data
+        setEvaluation(data.evaluation || null)
+        setQuestionIndex(data.questionIndex ?? questionIndex + 1)
+        setIsLastQuestion(data.isLastQuestion)
+        setFinalReport(data.finalReport || null)
+
+        if (data.isLastQuestion) {
+          setPhase('feedback')
+          setQuestion(null)
+          setAnswer('')
+          setTimer(0)
+          // refresh history to include this run
+          interviewApi.getHistory().then(r => setHistory(r.data?.data || [])).catch(() => {})
+        } else {
+          setQuestion(data.question)
+          setAnswer('')
+          setTimer(TIMER_BY_DIFFICULTY[difficulty])
+        }
+      })
+      .catch(() => setError('Could not submit answer. Please retry.'))
+      .finally(() => setSubmitting(false))
+  }
+
+  const handleAbandon = () => {
+    if (!sessionId) {
+      resetToSelect()
+      return
+    }
+    interviewApi.abandon(sessionId).catch(() => {})
+    resetToSelect()
+  }
+
+  const resetToSelect = () => {
+    clearInterval(timerRef.current)
+    setPhase('select')
+    setSessionId(null)
+    setQuestion(null)
+    setQuestionIndex(0)
+    setTotalQuestions(0)
+    setIsLastQuestion(false)
+    setAnswer('')
+    setEvaluation(null)
+    setFinalReport(null)
+    setTimer(TIMER_BY_DIFFICULTY[difficulty])
+    setError('')
+  }
+
+  const renderDifficultyPills = () => (
+    <div className="mb-6">
+      <p className="text-sm font-medium text-gray-700 mb-3">Select difficulty</p>
+      <div className="flex gap-3">
+        {['EASY', 'MEDIUM', 'HARD'].map(d => (
           <button
-            key={d.id}
-            onClick={() => startInterview(d)}
-            className="bg-white border border-gray-100 rounded-2xl p-6 text-left hover:border-blue-200 hover:shadow-sm transition-all group"
+            key={d}
+            onClick={() => { setDifficulty(d); setTimer(TIMER_BY_DIFFICULTY[d]) }}
+            className={`px-5 py-2.5 rounded-xl text-sm font-medium border transition-all capitalize ${
+              difficulty === d
+                ? DIFFICULTY_COLORS[d].active
+                : `${DIFFICULTY_COLORS[d].bg} ${DIFFICULTY_COLORS[d].text} ${DIFFICULTY_COLORS[d].border}`
+            }`}
           >
-            <div className="text-3xl mb-3">{d.icon}</div>
-            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-700 transition-colors">{d.label}</h3>
-            <p className="text-sm text-gray-500">{d.desc}</p>
-            <div className="flex items-center gap-1 mt-4 text-blue-600 text-sm font-medium">
-              Start session <ChevronRight size={14} />
-            </div>
+            {d.toLowerCase()}
+            <span className="ml-2 text-xs opacity-70">
+              {TIMER_BY_DIFFICULTY[d] / 60}m/q
+            </span>
           </button>
         ))}
-      </div>
-
-      <div className="mt-8 bg-blue-50 rounded-2xl p-5 border border-blue-100">
-        <p className="text-sm text-blue-800 font-medium mb-1">How it works</p>
-        <p className="text-sm text-blue-700">
-          Each session has 3 questions. You have 2 minutes per question.
-          Type your answer and submit. After the session you get a detailed feedback report with scores.
-        </p>
       </div>
     </div>
   )
 
+  // SELECT PHASE
+  if (phase === 'select') return (
+    <div className="p-8 max-w-4xl">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Mock interview</h2>
+          <p className="text-gray-500 text-sm mt-1">AI-powered interview prep — choose a domain and difficulty</p>
+        </div>
+        <button
+          onClick={() => setHistory(h => [...h])}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-all"
+        >
+          <History size={16} /> {history.length} attempts
+        </button>
+      </div>
+
+      {renderDifficultyPills()}
+
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
+          <AlertTriangle size={16} /> {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        {DOMAINS.map(d => {
+          const stats = categoryProgress.find(c => c.id === d.id) || {}
+          const loading = startingId === d.id
+          return (
+            <button
+              key={d.id}
+              onClick={() => !loading && handleStart(d)}
+              className="bg-white border border-gray-100 rounded-2xl p-6 text-left hover:border-blue-200 hover:shadow-md transition-all group relative overflow-hidden disabled:opacity-60"
+              disabled={loading}
+            >
+              <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${d.color} opacity-5 rounded-bl-full`} />
+              <div className="text-3xl mb-3">{d.icon}</div>
+              <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-700 transition-colors">{d.label}</h3>
+              <p className="text-sm text-gray-500 mb-4">{d.desc}</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-xs text-gray-400">
+                  <span>{stats.attempts || 0} attempts</span>
+                  {stats.best > 0 && <span className="text-green-600 font-medium">Best: {stats.best}/100</span>}
+                </div>
+                <div className="flex items-center gap-1 text-blue-600 text-sm font-medium">
+                  {loading ? <Loader2 className="animate-spin" size={16} /> : 'Start'} <ChevronRight size={14} />
+                </div>
+              </div>
+              {stats.best > 0 && (
+                <div className="mt-3 w-full bg-gray-100 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full bg-gradient-to-r ${d.color}`}
+                    style={{ width: `${stats.best}%` }}
+                  />
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {lastSession && (
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-blue-900">Last session: {lastSession.domain}</p>
+            <p className="text-xs text-blue-600 mt-0.5 capitalize">
+              {lastSession.difficulty?.toLowerCase()} · Score: {lastSession.finalReport?.overallScore ?? '—'}/100 · {formatTimestamp(lastSession.completedAt || lastSession.createdAt)}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const d = DOMAINS.find(x => x.id === lastSession.domain)
+              if (d) {
+                setDifficulty(lastSession.difficulty || 'MEDIUM')
+                handleStart(d)
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all"
+          >
+            <Play size={14} /> Retry
+          </button>
+        </div>
+      )}
+
+      <div className="mt-6 bg-white border border-gray-100 rounded-2xl p-6">
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <History size={16} /> Recent history
+        </h3>
+        {history.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No sessions yet. Start your first interview!</p>
+        ) : (
+          <div className="space-y-2">
+              {history.slice(0, 8).map(s => (
+                <div key={s.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{DOMAINS.find(d => d.id === s.domain)?.icon || '📋'}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{s.domain}</p>
+                      <p className="text-xs text-gray-400 capitalize">{s.difficulty?.toLowerCase()} · {formatTimestamp(s.completedAt || s.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold ${((s.finalReport?.overallScore ?? 0) >= 80) ? 'text-green-600' : ((s.finalReport?.overallScore ?? 0) >= 65 ? 'text-amber-600' : 'text-red-500')}`}>
+                      {s.finalReport?.overallScore ?? '—'}/100
+                  </span>
+                  <div className={`w-2 h-2 rounded-full ${((s.finalReport?.overallScore ?? 0) >= 80) ? 'bg-green-500' : ((s.finalReport?.overallScore ?? 0) >= 65 ? 'bg-amber-500' : 'bg-red-400')}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  // INTERVIEW PHASE
   if (phase === 'interview') return (
     <div className="p-8 max-w-3xl">
-
-      {/* Progress bar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{domain.icon}</span>
+          <span className="text-2xl">{DOMAINS.find(d => d.id === domainId)?.icon}</span>
           <div>
-            <h2 className="font-semibold text-gray-900">{domain.label}</h2>
-            <p className="text-sm text-gray-500">Question {qIndex + 1} of {totalQ}</p>
+            <h2 className="font-semibold text-gray-900">{DOMAINS.find(d => d.id === domainId)?.label}</h2>
+            <p className="text-sm text-gray-500 capitalize">
+              {difficulty.toLowerCase()} · Question {questionIndex + 1} of {totalQuestions}
+            </p>
           </div>
         </div>
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-semibold ${
-          timer <= 30 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-700'
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-semibold transition-all ${
+          timer <= 30 ? 'bg-red-50 text-red-600 animate-pulse' : timer <= 60 ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-700'
         }`}>
           <Clock size={14} />
           {formatTime(timer)}
         </div>
       </div>
 
-      {/* Progress dots */}
-      <div className="flex gap-2 mb-6">
-        {questions[domain.id].map((_, i) => (
-          <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${
-            i < qIndex ? 'bg-green-500' : i === qIndex ? 'bg-blue-600' : 'bg-gray-200'
-          }`} />
-        ))}
-      </div>
-
-      {/* Question card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
-        <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-3">Question {qIndex + 1}</p>
-        <p className="text-lg font-medium text-gray-900 leading-relaxed mb-4">{currentQ.q}</p>
-        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5">
-          <p className="text-xs text-amber-700"><span className="font-semibold">Hint:</span> {currentQ.hint}</p>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
+          <AlertTriangle size={16} /> {error}
         </div>
+      )}
+
+      <div className="w-full bg-gray-100 rounded-full h-1 mb-6">
+        <div
+          className={`h-1 rounded-full transition-all duration-1000 ${
+            timer <= 30 ? 'bg-red-500' : timer <= 60 ? 'bg-amber-500' : 'bg-blue-600'
+          }`}
+          style={{ width: `${(timer / TIMER_BY_DIFFICULTY[difficulty]) * 100}%` }}
+        />
       </div>
 
-      {/* Answer area */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${DIFFICULTY_COLORS[difficulty].bg} ${DIFFICULTY_COLORS[difficulty].text}`}>
+            <Zap size={10} className="inline mr-1" />{difficulty.toLowerCase()}
+          </span>
+          <span className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Question {questionIndex + 1}</span>
+        </div>
+        <p className="text-lg font-medium text-gray-900 leading-relaxed mb-4">{question}</p>
+      </div>
+
+      {evaluation && (
+        <div className="bg-green-50 border border-green-100 text-sm text-green-800 rounded-2xl px-4 py-3 mb-4">
+          <p className="font-semibold">Previous answer feedback</p>
+          <p className="mt-1">{evaluation.feedback}</p>
+          {evaluation.correctAnswer && <p className="mt-1 text-green-900"><span className="font-semibold">Suggested answer:</span> {evaluation.correctAnswer}</p>}
+          {evaluation.improvements && <p className="mt-1"><span className="font-semibold">Improvements:</span> {evaluation.improvements}</p>}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
         <textarea
-          ref={textareaRef}
           value={answer}
           onChange={e => setAnswer(e.target.value)}
-          placeholder="Type your answer here... Be thorough and structured."
+          placeholder="Type your answer here..."
           rows={6}
           className="w-full text-sm text-gray-700 placeholder-gray-400 resize-none focus:outline-none leading-relaxed"
         />
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between pt-3 border-top border-gray-100">
+          <span className="text-xs text-gray-400">{answer.length} chars</span>
+          <div className="flex gap-2">
             <button
-              onClick={() => setRecording(r => !r)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                recording
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              onClick={handleAbandon}
+              className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all"
+              type="button"
             >
-              {recording ? <MicOff size={14} /> : <Mic size={14} />}
-              {recording ? 'Stop recording' : 'Voice input'}
+              Abandon
             </button>
-            <span className="text-xs text-gray-400">{answer.length} chars</span>
+            <button
+              onClick={() => handleSubmit(false)}
+              disabled={submitting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 text-white text-sm font-medium rounded-xl transition-all"
+              type="button"
+            >
+              {submitting ? <Loader2 className="animate-spin" size={16} /> : (isLastQuestion ? 'Finish' : 'Next')}
+              <Send size={14} />
+            </button>
           </div>
-          <button
-            onClick={submitAnswer}
-            disabled={!answer.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-all"
-          >
-            {qIndex + 1 === totalQ ? 'Finish' : 'Next question'}
-            <Send size={14} />
-          </button>
         </div>
       </div>
     </div>
   )
 
-  if (phase === 'feedback') return (
+  // FEEDBACK PHASE
+  const report = finalReport || {}
+  const questionAnswers = report.questionAnswers || []
+  const breakdown = report.topicBreakdown || []
+
+  return (
     <div className="p-8 max-w-3xl">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-gray-900">Interview complete</h2>
-        <p className="text-gray-500 text-sm mt-1">Here's your performance breakdown</p>
+        <p className="text-gray-500 text-sm mt-1">Here is your performance breakdown</p>
       </div>
 
-      {/* Overall score */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4 flex items-center gap-6">
         <div className="relative w-24 h-24 flex-shrink-0">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
             <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f3f4f6" strokeWidth="3"/>
-            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#2563eb" strokeWidth="3"
-              strokeDasharray={`${avgScore} 100`} strokeLinecap="round"/>
+            <circle cx="18" cy="18" r="15.9" fill="none"
+              stroke="#2563eb"
+              strokeWidth="3" strokeDasharray={`${report.overallScore || 0} 100`} strokeLinecap="round"/>
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-xl font-bold text-gray-900">{avgScore}</p>
+              <p className="text-xl font-bold text-gray-900">{report.overallScore ?? '—'}</p>
               <p className="text-xs text-gray-400">/100</p>
             </div>
           </div>
         </div>
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Award size={18} className="text-amber-500" />
-            <p className="font-semibold text-gray-900">Overall score: {avgScore}/100</p>
-          </div>
-          <p className="text-sm text-gray-500">
-            {avgScore >= 80 ? 'Excellent performance! You are well prepared.' :
-             avgScore >= 65 ? 'Good effort. Focus on weaker areas to improve.' :
-             'Keep practising. Consistent effort leads to improvement.'}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">{domain.label} · {totalQ} questions</p>
+          <p className="font-semibold text-gray-900">Overall score: {report.overallScore ?? '—'}/100</p>
+          <p className="text-sm text-gray-500">{report.overallFeedback || 'No feedback provided.'}</p>
+          <p className="text-xs text-gray-400 mt-1">{DOMAINS.find(d => d.id === domainId)?.label} · {totalQuestions} questions</p>
         </div>
       </div>
 
-      {/* Score breakdown */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
-        <h3 className="font-semibold text-gray-900 mb-4">Score breakdown</h3>
-        <div className="space-y-4">
-          {feedback.map(({ label, score, color }) => (
-            <div key={label}>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-sm text-gray-700">{label}</p>
-                <p className="text-sm font-semibold text-gray-900">{score}/100</p>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-2">
-                <div className={`${color} h-2 rounded-full transition-all duration-700`} style={{ width: `${score}%` }} />
-              </div>
-            </div>
-          ))}
+        <h3 className="font-semibold text-gray-900 mb-3">Strengths & weaknesses</h3>
+        <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+          <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+            <p className="font-semibold text-green-800 mb-1">Strengths</p>
+            <ul className="list-disc list-inside space-y-1 text-green-900">
+              {(report.strengths || ['No strengths detected yet.']).map((s, i) => <li key={i}>{s}</li>)}
+            </ul>
+          </div>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+            <p className="font-semibold text-amber-800 mb-1">Weaknesses</p>
+            <ul className="list-disc list-inside space-y-1 text-amber-900">
+              {(report.weaknesses || ['No weaknesses provided.']).map((s, i) => <li key={i}>{s}</li>)}
+            </ul>
+          </div>
         </div>
       </div>
 
-      {/* Answers review */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Your answers</h3>
-        <div className="space-y-4">
-          {answers.map((a, i) => (
-            <div key={i} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
-              <p className="text-sm font-medium text-gray-900 mb-2">Q{i + 1}: {a.q}</p>
-              <p className="text-sm text-gray-600 bg-gray-50 rounded-xl px-4 py-3 leading-relaxed">{a.a}</p>
-            </div>
-          ))}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
+        <h3 className="font-semibold text-gray-900 mb-3">Suggestions</h3>
+        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+          {(report.suggestions || ['No suggestions provided.']).map((s, i) => <li key={i}>{s}</li>)}
+        </ul>
+      </div>
+
+      {breakdown.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4">
+          <h3 className="font-semibold text-gray-900 mb-3">Topic breakdown</h3>
+          <div className="space-y-3">
+            {breakdown.map((b, i) => (
+              <div key={i}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-gray-700">{b.topic}</p>
+                  <p className="text-sm font-semibold text-gray-900">{b.score}/100</p>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${b.score}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+        <h3 className="font-semibold text-gray-900 mb-3">Question review</h3>
+        {questionAnswers.length === 0 ? (
+          <p className="text-sm text-gray-500">No question details available.</p>
+        ) : (
+          <div className="space-y-4 text-sm text-gray-700">
+            {questionAnswers.map((qa, i) => (
+              <div key={i} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                <p className="font-semibold text-gray-900 mb-1">Q{i + 1}: {qa.question}</p>
+                <p className="text-gray-700 mb-1"><span className="font-semibold">Your answer:</span> {qa.answer}</p>
+                {qa.evaluation && <p className="text-gray-700 mb-1"><span className="font-semibold">Feedback:</span> {qa.evaluation.feedback}</p>}
+                {qa.evaluation?.correctAnswer && <p className="text-gray-700 mb-1"><span className="font-semibold">Correct answer:</span> {qa.evaluation.correctAnswer}</p>}
+                {qa.evaluation?.improvements && <p className="text-gray-700"><span className="font-semibold">Improvements:</span> {qa.evaluation.improvements}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">
         <button
-          onClick={() => { setPhase('select'); setDomain(null) }}
+          onClick={resetToSelect}
           className="flex-1 flex items-center justify-center gap-2 py-3 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all"
         >
           <RotateCcw size={16} /> Try another domain
         </button>
         <button
-          onClick={() => startInterview(domain)}
+          onClick={() => {
+            const d = DOMAINS.find(x => x.id === domainId)
+            if (d) handleStart(d)
+          }}
           className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-all"
         >
           Retry this domain

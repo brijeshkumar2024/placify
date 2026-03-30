@@ -8,6 +8,8 @@ import Dashboard from './pages/dashboard/Dashboard'
 import Drives from './pages/dashboard/Drives'
 import Students from './pages/dashboard/Students'
 import Reports from './pages/dashboard/Reports'
+import Companies from './pages/dashboard/Companies'
+import Notifications from './pages/dashboard/Notifications'
 import useAuthStore from './store/authStore'
 
 function ProtectedRoute({ children }) {
@@ -28,9 +30,9 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="drives" element={<Drives />} />
         <Route path="students" element={<Students />} />
-        <Route path="companies" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Companies — coming soon</h2></div>} />
+        <Route path="companies" element={<Companies />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="notifications" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Notifications — coming soon</h2></div>} />
+        <Route path="notifications" element={<Notifications />} />
         <Route path="settings" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Settings — coming soon</h2></div>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

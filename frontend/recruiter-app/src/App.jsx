@@ -28,7 +28,10 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="post-job" element={<PostJob />} />
         <Route path="my-jobs" element={<MyJobs />} />
+        <Route path="applicants" element={<Navigate to="/dashboard/my-jobs" replace />} />
         <Route path="applicants/:jobId" element={<Applicants />} />
+        <Route path="analytics" element={<Dashboard />} />
+        <Route path="interviews" element={<Navigate to="/dashboard/my-jobs" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

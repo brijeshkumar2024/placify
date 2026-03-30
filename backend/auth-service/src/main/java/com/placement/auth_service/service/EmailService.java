@@ -17,4 +17,13 @@ public class EmailService {
             log.info("========================================");
         });
     }
+
+    public Mono<Void> sendResetPasswordEmail(String toEmail, String resetLink) {
+        return Mono.fromRunnable(() -> {
+            log.info("========================================");
+            log.info("PASSWORD RESET REQUEST FOR: {}", toEmail);
+            log.info("RESET LINK: {}", resetLink);
+            log.info("========================================");
+        });
+    }
 }

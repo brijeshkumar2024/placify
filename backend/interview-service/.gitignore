@@ -1,0 +1,6 @@
+target/
+*.class
+*.jar
+*.war
+.env
+interview.env.properties

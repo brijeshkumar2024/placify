@@ -1,0 +1,18 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: placement-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/campus_placement}
+      database: campus_placement
+      auto-index-creation: true
+
+jwt:
+  secret: ${JWT_SECRET:4C7ZvkSWhc0upMVkRLunfh4o0flMOvyqNzEByNBST1g+8fDJtyCwXqoUVO7sEdArGsqYC61NdmOiE/p8xOnAfQ==}
+
+logging:
+  level:
+    com.placement: DEBUG
