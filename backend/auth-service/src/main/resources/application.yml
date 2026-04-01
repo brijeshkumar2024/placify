@@ -16,16 +16,29 @@ spring:
       enabled: false
     timeout: 3000ms
     connect-timeout: 3000ms
+  mail:
+    host: smtp-relay.brevo.com
+    port: 587
+    username: ${BREVO_SMTP_LOGIN}
+    password: ${BREVO_SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+
+app:
+  mail:
+    from: ${BREVO_FROM_EMAIL}
 
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
   reset-expiration: ${JWT_RESET_EXPIRATION:900000}
-
-resend:
-  api-key: ${RESEND_API_KEY}
-  from-email: onboarding@resend.dev
 
 otp:
   expiry-minutes: 10

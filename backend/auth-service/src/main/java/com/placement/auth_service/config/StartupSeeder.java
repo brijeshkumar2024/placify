@@ -42,7 +42,7 @@ public class StartupSeeder {
     }
 
     private Mono<User> upsertUser(UserRepository repo, PasswordEncoder encoder,
-                                  String email, String rawPassword, String name, User.Role role) {
+                                String email, String rawPassword, String name, User.Role role) {
         return repo.findByEmail(email)
                 .flatMap(existing -> {
                     // Respect existing users: do not overwrite password if already set

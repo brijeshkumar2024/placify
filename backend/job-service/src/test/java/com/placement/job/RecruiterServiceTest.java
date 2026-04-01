@@ -16,7 +16,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 
@@ -89,14 +88,13 @@ class RecruiterServiceTest {
         when(emailService.sendInterviewScheduled(anyString(), anyString(), anyString(), any(), anyString()))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(recruiterService.scheduleInterview(request))
-                .assertNext(savedInterview -> {
-                    assertEquals("int-001", savedInterview.getId());
-                    assertEquals(Interview.InterviewStatus.SCHEDULED, savedInterview.getStatus());
-                    assertEquals("app-123", savedInterview.getApplicationId());
-                    assertNotNull(savedInterview.getScheduledAt());
-                })
-                .verifyComplete();
+        Interview savedInterview = recruiterService.scheduleInterview(request).block();
+
+        assertNotNull(savedInterview);
+        assertEquals("int-001", savedInterview.getId());
+        assertEquals(Interview.InterviewStatus.SCHEDULED, savedInterview.getStatus());
+        assertEquals("app-123", savedInterview.getApplicationId());
+        assertNotNull(savedInterview.getScheduledAt());
 
         ArgumentCaptor<Application> applicationCaptor = ArgumentCaptor.forClass(Application.class);
         verify(applicationRepository).save(applicationCaptor.capture());

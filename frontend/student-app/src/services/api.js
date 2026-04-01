@@ -78,7 +78,7 @@ export const authApi = {
   checkEmail: (email) => authInstance.post('/api/auth/check-email', { email }),
   verifyOtp: (email, otp) => authInstance.post('/api/auth/verify-otp', { email, otp }),
   register: (data) => authInstance.post('/api/auth/register', data),
-  login: (email, password) => authInstance.post('/api/auth/login', { email, password }),
+  login: (data) => authInstance.post('/api/auth/login', data),
   forgotPassword: (email) => authInstance.post('/api/auth/forgot-password', { email }),
   resetPassword: (token, newPassword) =>
     authInstance.post('/api/auth/reset-password', { token, newPassword }),

@@ -54,13 +54,15 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public Mono<ResponseEntity<ApiResponse<String>>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return authService.forgotPassword(request.getEmail())
-                .map(msg -> ResponseEntity.ok(ApiResponse.<String>success(msg, null)));
+                .map(msg -> ResponseEntity.ok(ApiResponse.<String>success(msg, null)))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()))));
     }
 
     @PostMapping("/reset-password")
     public Mono<ResponseEntity<ApiResponse<String>>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         return authService.resetPassword(request.getToken(), request.getNewPassword())
-                .map(msg -> ResponseEntity.ok(ApiResponse.<String>success(msg, null)));
+                .map(msg -> ResponseEntity.ok(ApiResponse.<String>success(msg, null)))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()))));
     }
     @GetMapping("/health")
     public Mono<ResponseEntity<ApiResponse<String>>> health() {
