@@ -28,12 +28,13 @@ public class JwtUtil {
     }
 
     public String extractUserId(String token) {
-        return extractAllClaims(token).getSubject();
+        return extractAllClaims(token).get("userId", String.class);
     }
 
     public String extractEmail(String token) {
         return extractAllClaims(token).get("email", String.class);
     }
+
     public String extractRole(String token) {
         return extractAllClaims(token).get("role", String.class);
     }
@@ -42,7 +43,8 @@ public class JwtUtil {
         try {
             extractAllClaims(token);
             return true;
-        } catch (Exception e) {
+        } catch (Exception ex) {
+            ex.getMessage();
             return false;
         }
     }

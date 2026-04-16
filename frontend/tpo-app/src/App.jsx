@@ -11,6 +11,7 @@ import Reports from './pages/dashboard/Reports'
 import Companies from './pages/dashboard/Companies'
 import CompanyDetails from './pages/dashboard/CompanyDetails'
 import Notifications from './pages/dashboard/Notifications'
+import Settings from './pages/dashboard/Settings'
 import useAuthStore from './store/authStore'
 
 import PlacementTracker from './pages/dashboard/PlacementTracker'
@@ -38,7 +39,7 @@ function App() {
         <Route path="companies/:id" element={<CompanyDetails />} />
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />
-        <Route path="settings" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Settings — coming soon</h2></div>} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

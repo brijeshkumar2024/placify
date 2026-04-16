@@ -31,6 +31,7 @@ const statusMap = {
   SHORTLISTED: 'shortlisted',
   INTERVIEW: 'interview',
   OFFER: 'offer',
+  HIRED: 'offer',
   REJECTED: 'rejected',
 }
 
@@ -64,6 +65,7 @@ export default function Applications() {
               fit: item.fitScore || 0,
               status: item.status,
               ctc: item.ctc || '—',
+              interviewDateTime: item.interviewDateTime || null,
             }
           ]
         })
@@ -225,6 +227,7 @@ export default function Applications() {
                 { label: 'Status', value: <span className="flex items-center gap-1.5">{statusIcon[selected.statusKey]} <span className="capitalize">{selected.statusKey}</span></span> },
                 { label: 'Applied on', value: selected.appliedOn },
                 { label: 'Fit score', value: `${selected.fit}%` },
+                ...(selected.interviewDateTime ? [{ label: 'Interview scheduled', value: new Date(selected.interviewDateTime).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) }] : []),
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between py-2.5 border-b border-gray-50">
                   <span className="text-sm text-gray-500">{label}</span>

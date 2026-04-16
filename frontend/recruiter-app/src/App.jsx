@@ -13,6 +13,7 @@ import Interviews from './pages/dashboard/Interviews'
 import Analytics from './pages/dashboard/Analytics'
 import Reports from './pages/dashboard/Reports'
 import Notifications from './pages/dashboard/Notifications'
+import Settings from './pages/dashboard/Settings'
 import useAuthStore from './store/authStore'
 
 function ProtectedRoute({ children }) {
@@ -42,15 +43,7 @@ function App() {
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="interview/*" element={<Navigate to="/dashboard/interviews" replace />} />
-        <Route
-          path="settings"
-          element={(
-            <div className="glass-card p-6">
-              <h2 className="text-xl font-semibold text-gray-900">Settings</h2>
-              <p className="mt-2 text-sm text-gray-500">Workspace preferences, recruiter profile options, and notification controls will live here.</p>
-            </div>
-          )}
-        />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

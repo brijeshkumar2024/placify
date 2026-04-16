@@ -1,35 +1,35 @@
-import axios from 'axios'
+import { createApiInstance } from './client'
 
-const createInstance = (baseURL) => {
-  const instance = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' }, timeout: 10000 })
-  instance.interceptors.request.use((config) => {
-    const token = sessionStorage.getItem('placify_recruiter_token')
-    if (token) config.headers.Authorization = `Bearer ${token}`
-    return config
-  })
-  instance.interceptors.response.use(
-    (res) => res,
-    (err) => {
-      if (err.response?.status === 401) {
-        sessionStorage.removeItem('placify_recruiter_token')
-        sessionStorage.removeItem('placify_recruiter_user')
-        window.location.href = '/login'
-      }
-      return Promise.reject(err)
-    }
-  )
-  return instance
+const recruiterTokenKey = 'placify_recruiter_token'
+const recruiterUserKey = 'placify_recruiter_user'
+
+const handleUnauthorized = () => {
+  sessionStorage.removeItem(recruiterTokenKey)
+  sessionStorage.removeItem(recruiterUserKey)
+  globalThis.location.href = '/login'
 }
 
 const apiRoot = import.meta.env.VITE_API_URL || 'http://localhost'
-const authInstance = createInstance(import.meta.env.VITE_AUTH_API_URL || `${apiRoot}:8081`)
-const jobInstance = createInstance(import.meta.env.VITE_JOB_API_URL || `${apiRoot}:8083`)
+const gatewayBase = import.meta.env.VITE_API_GATEWAY_URL || `${apiRoot}:8080`
+const authInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_AUTH_API_URL || gatewayBase,
+  timeout: 15000,
+  getToken: () => sessionStorage.getItem(recruiterTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
+const jobInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_JOB_API_URL || gatewayBase,
+  timeout: 20000,
+  getToken: () => sessionStorage.getItem(recruiterTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
 
 export const authApi = {
   checkEmail: (email) => authInstance.post('/api/auth/check-email', { email }),
   verifyOtp: (email, otp) => authInstance.post('/api/auth/verify-otp', { email, otp }),
   register: (data) => authInstance.post('/api/auth/register', data),
   login: (email, password) => authInstance.post('/api/auth/login', { email, password }),
+  forgotPassword: (email) => authInstance.post('/api/auth/forgot-password', { email }),
 }
 
 export const jobApi = {
@@ -47,6 +47,17 @@ export const jobApi = {
   updateRating: (id, rating) => jobInstance.put(`/api/applications/${id}/rating`, { rating }),
   updateNotes: (id, notes) => jobInstance.put(`/api/applications/${id}/notes`, { notes }),
   scheduleInterview: (payload) => jobInstance.post('/api/interviews/schedule', payload),
+}
+
+// Notifications — recruiter reads the same broadcast notifications as students
+const interviewInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_INTERVIEW_API_URL || gatewayBase,
+  timeout: 15000,
+  getToken: () => sessionStorage.getItem(recruiterTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
+export const notificationApi = {
+  list: () => interviewInstance.get('/api/interview/notifications/student'),
 }
 
 export default authInstance

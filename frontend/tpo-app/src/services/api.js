@@ -1,34 +1,49 @@
-import axios from 'axios'
-const createInstance = (baseURL) => {
-  const instance = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' }, timeout: 10000 })
-  instance.interceptors.request.use((config) => {
-    const token = sessionStorage.getItem('placify_tpo_token')
-    if (token) config.headers.Authorization = `Bearer ${token}`
-    return config
-  })
-  instance.interceptors.response.use(
-    (res) => res,
-    (err) => {
-      if (err.response?.status === 401) {
-        sessionStorage.removeItem('placify_tpo_token')
-        window.location.href = '/login'
-      }
-      return Promise.reject(err)
-    }
-  )
-  return instance
+import { createApiInstance } from './client'
+
+const tpoTokenKey = 'placify_tpo_token'
+const handleUnauthorized = () => {
+  sessionStorage.removeItem(tpoTokenKey)
+  globalThis.location.href = '/login'
 }
+
 const apiRoot = import.meta.env.VITE_API_URL || 'http://localhost'
-const authInstance = createInstance(import.meta.env.VITE_AUTH_API_URL || `${apiRoot}:8081`)
-const jobInstance = createInstance(import.meta.env.VITE_JOB_API_URL || `${apiRoot}:8083`)
-const userInstance = createInstance(import.meta.env.VITE_USER_API_URL || `${apiRoot}:8082`)
-const placementInstance = createInstance(import.meta.env.VITE_PLACEMENT_API_URL || `${apiRoot}:8084`)
-const notificationInstance = createInstance(import.meta.env.VITE_NOTIFICATION_API_URL || `${apiRoot}:8085`)
+const gatewayBase = import.meta.env.VITE_API_GATEWAY_URL || `${apiRoot}:8080`
+const authInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_AUTH_API_URL || gatewayBase,
+  timeout: 15000,
+  getToken: () => sessionStorage.getItem(tpoTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
+const jobInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_JOB_API_URL || gatewayBase,
+  timeout: 15000,
+  getToken: () => sessionStorage.getItem(tpoTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
+const userInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_USER_API_URL || gatewayBase,
+  timeout: 15000,
+  getToken: () => sessionStorage.getItem(tpoTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
+const placementInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_PLACEMENT_API_URL || gatewayBase,
+  timeout: 20000,
+  getToken: () => sessionStorage.getItem(tpoTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
+const notificationInstance = createApiInstance({
+  baseURL: import.meta.env.VITE_NOTIFICATION_API_URL || gatewayBase,
+  timeout: 15000,
+  getToken: () => sessionStorage.getItem(tpoTokenKey),
+  onUnauthorized: handleUnauthorized,
+})
 export const authApi = {
   checkEmail: (email) => authInstance.post('/api/auth/check-email', { email }),
   verifyOtp: (email, otp) => authInstance.post('/api/auth/verify-otp', { email, otp }),
   register: (data) => authInstance.post('/api/auth/register', data),
   login: (email, password) => authInstance.post('/api/auth/login', { email, password }),
+  forgotPassword: (email) => authInstance.post('/api/auth/forgot-password', { email }),
   createRecruiter: (data) => authInstance.post('/api/auth/admin/recruiters', data),
 }
 export const jobApi = {

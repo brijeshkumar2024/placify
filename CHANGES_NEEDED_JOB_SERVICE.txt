@@ -1,0 +1,51 @@
+// JOB-SERVICE: JwtAuthFilter.java - FILTER METHOD REPLACEMENT
+// Replace the filter() method starting at line 47 with this:
+
+@Override
+public @NonNull Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {
+    String path = exchange.getRequest().getPath().value();
+    String method = exchange.getRequest().getMethod().name();
+    if ("OPTIONS".equalsIgnoreCase(method) || isPublic(path)) {
+        return chain.filter(exchange);
+    }
+
+    // STEP 1: Try gateway headers first
+    String userIdFromGateway = exchange.getRequest().getHeaders().getFirst("x-user-id");
+    String roleFromGateway = exchange.getRequest().getHeaders().getFirst("x-user-role");
+
+    if (userIdFromGateway != null && !userIdFromGateway.isBlank()) {
+        String role = roleFromGateway != null ? roleFromGateway : ROLE_STUDENT;
+        if (!requiresRole(path, role)) {
+            return unauthorized(exchange, "Forbidden: insufficient privileges.");
+        }
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                userIdFromGateway,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + normalizeRole(role))));
+        return chain.filter(exchange)
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+    }
+
+    // STEP 2: Fallback to JWT
+    String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        return unauthorized(exchange, "Authorization header missing or malformed.");
+    }
+    String token = authHeader.substring(7);
+    if (!jwtUtil.isTokenValid(token)) {
+        return unauthorized(exchange, "Invalid or expired token.");
+    }
+
+    String role = jwtUtil.extractRole(token);
+    if (!requiresRole(path, role)) {
+        return unauthorized(exchange, "Forbidden: insufficient privileges.");
+    }
+
+    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+            jwtUtil.extractUserId(token),
+            token,
+            List.of(new SimpleGrantedAuthority("ROLE_" + normalizeRole(role))));
+
+    return chain.filter(exchange)
+            .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+}

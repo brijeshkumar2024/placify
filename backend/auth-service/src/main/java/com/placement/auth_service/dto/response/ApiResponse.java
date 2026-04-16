@@ -1,4 +1,5 @@
 package com.placement.auth_service.dto.response;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,12 +11,15 @@ public class ApiResponse<T> {
     private boolean success;
     private String message;
     private T data;
+    private Object error;
+    private String requestId;
 
     public static <T> ApiResponse<T> success(String message, T data) {
         ApiResponse<T> r = new ApiResponse<>();
         r.setSuccess(true);
         r.setMessage(message);
         r.setData(data);
+        r.setError(null);
         return r;
     }
 
@@ -23,6 +27,8 @@ public class ApiResponse<T> {
         ApiResponse<T> r = new ApiResponse<>();
         r.setSuccess(false);
         r.setMessage(message);
+        r.setData(null);
+        r.setError(null);
         return r;
     }
 }

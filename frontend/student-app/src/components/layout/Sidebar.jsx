@@ -27,8 +27,8 @@ export default function Sidebar() {
   useEffect(() => {
     if (location.pathname.startsWith('/dashboard/notifications')) { setNotifCount(0); return }
     if (!user) return
-    notificationApi.list()
-      .then(res => { const l = res?.data?.data ?? res?.data ?? []; setNotifCount(Array.isArray(l) ? l.length : 0) })
+    notificationApi.unreadCount()
+      .then(res => { setNotifCount(res?.data?.data?.count ?? 0) })
       .catch(() => setNotifCount(0))
   }, [user, location.pathname])
 

@@ -17,6 +17,7 @@ import MyProgress from './pages/dashboard/MyProgress'
 import Profile from './pages/dashboard/Profile'
 import Notifications from './pages/dashboard/Notifications'
 import Drives from './pages/dashboard/Drives'
+import Settings from './pages/dashboard/Settings'
 import AuthGuard from './components/auth/AuthGuard'
 import { AUTH_SYNC_KEY, decodeJwt } from './utils/auth'
 
@@ -90,7 +91,7 @@ function App() {
         <Route path="analytics" element={<MyProgress />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="settings" element={<div className="p-8"><h2 className="text-2xl font-semibold text-gray-900">Settings — coming next</h2></div>} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

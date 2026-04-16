@@ -1,4 +1,5 @@
 package com.placement.auth_service.util;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -7,8 +8,11 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Base64;
 import java.util.Date;
+
 @Component
 public class JwtUtil {
+    private static final String USER_ID_CLAIM = "userId";
+
     @Value("${jwt.secret}")
     private String secret;
     @Value("${jwt.expiration}")
@@ -17,22 +21,27 @@ public class JwtUtil {
     private long refreshExpiration;
     @Value("${jwt.reset-expiration}")
     private long resetExpiration;
+
     private SecretKey getSigningKey() {
         byte[] keyBytes = Base64.getDecoder().decode(secret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
     public String generateToken(String userId, String email, String role) {
         return generateToken(userId, email, role, null);
     }
+
     public String generateToken(String userId, String email, String role, String fullName) {
-        var builder = Jwts.builder().subject(userId).claim("email", email).claim("role", role);
-        if (fullName != null) builder.claim("fullName", fullName);
+        var builder = Jwts.builder().claim(USER_ID_CLAIM, userId).claim("email", email).claim("role", role);
+        if (fullName != null)
+            builder.claim("fullName", fullName);
         return builder.issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey()).compact();
     }
+
     public String generateRefreshToken(String userId) {
-        return Jwts.builder().subject(userId).issuedAt(new Date())
+        return Jwts.builder().claim(USER_ID_CLAIM, userId).issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
                 .signWith(getSigningKey()).compact();
     }
@@ -40,7 +49,7 @@ public class JwtUtil {
     public String generatePasswordResetToken(String userId, String email) {
         // Token purpose is validated via the `type` claim in the reset endpoint.
         return Jwts.builder()
-                .subject(userId)
+                .claim(USER_ID_CLAIM, userId)
                 .claim("email", email)
                 .claim("type", "password_reset")
                 .issuedAt(new Date())
@@ -48,13 +57,16 @@ public class JwtUtil {
                 .signWith(getSigningKey())
                 .compact();
     }
+
     public Claims extractAllClaims(String token) {
         return Jwts.parser().verifyWith(getSigningKey()).build()
                 .parseSignedClaims(token).getPayload();
     }
+
     public String extractUserId(String token) {
-        return extractAllClaims(token).getSubject();
+        return extractAllClaims(token).get(USER_ID_CLAIM, String.class);
     }
+
     public String extractRole(String token) {
         Object role = extractAllClaims(token).get("role");
         return role == null ? null : role.toString();
@@ -64,7 +76,14 @@ public class JwtUtil {
         Object type = extractAllClaims(token).get("type");
         return type == null ? null : type.toString();
     }
+
     public boolean isTokenValid(String token) {
-        try { extractAllClaims(token); return true; } catch (Exception e) { return false; }
+        try {
+            extractAllClaims(token);
+            return true;
+        } catch (Exception ex) {
+            ex.getMessage();
+            return false;
+        }
     }
 }
